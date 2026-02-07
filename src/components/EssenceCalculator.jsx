@@ -9,82 +9,82 @@ export default function EssenceCalculator() {
     const result = useMemo(() => {
         const totalWeight = numPots * potVolume;
         const divisor = 1 + (essencePercent / 100);
-        const waxAmount = totalWeight / divisor;
-        const essenceAmount = totalWeight - waxAmount;
+        const waxAmount = Math.round(totalWeight / divisor);
+        const essenceAmount = Math.round(totalWeight - waxAmount);
 
         return {
             totalWeight,
-            waxAmount: waxAmount.toFixed(2),
-            essenceAmount: essenceAmount.toFixed(2)
+            waxAmount,
+            essenceAmount
         };
     }, [numPots, potVolume, essencePercent]);
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-white">Calculadora de Essência</h2>
+                <h2 className="text-3xl font-bold uppercase tracking-tighter">Calculadora</h2>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-                <h3 className="text-lg font-medium text-slate-200 mb-6 flex items-center gap-2">
-                    <Calculator className="text-blue-500" size={20} />
-                    Calcular Quantidade de Essência para Velas
+            <div className="bg-surface border border-border rounded-xl p-6">
+                <h3 className="text-lg font-medium text-foreground/80 mb-6 flex items-center gap-3">
+                    <Calculator className="text-brand shrink-0" size={28} />
+                    Experimente diferentes quantidades, volumes e porcentagens para fazer um cálculo preciso
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-400">Número de Potes</label>
+                        <label className="text-sm font-medium text-muted-foreground">Número de Potes</label>
                         <input
                             type="number"
                             min="1"
                             value={numPots}
                             onChange={e => setNumPots(Number(e.target.value) || 1)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500"
+                            className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground text-lg focus:outline-none focus:border-brand transition-colors"
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-400">Volume do Pote (g)</label>
+                        <label className="text-sm font-medium text-muted-foreground">Volume do Pote (g)</label>
                         <input
                             type="number"
                             min="1"
                             value={potVolume}
                             onChange={e => setPotVolume(Number(e.target.value) || 1)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500"
+                            className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground text-lg focus:outline-none focus:border-brand transition-colors"
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-400">Essência (%)</label>
+                        <label className="text-sm font-medium text-muted-foreground">Essência (%)</label>
                         <input
                             type="number"
                             min="1"
                             max="100"
                             value={essencePercent}
                             onChange={e => setEssencePercent(Number(e.target.value) || 1)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white text-lg focus:outline-none focus:border-blue-500"
+                            className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground text-lg focus:outline-none focus:border-brand"
                         />
                     </div>
                 </div>
 
                 {/* Results */}
-                <div className="bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-700 rounded-xl p-6">
-                    <h4 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Resultado</h4>
+                <div className="bg-muted/30 border border-border rounded-xl p-6">
+                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Resultado</h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-                            <div className="text-slate-400 text-sm mb-1">Peso Total</div>
-                            <div className="text-2xl font-bold text-white font-mono">{result.totalWeight}g</div>
+                        <div className="bg-surface border border-border/50 rounded-lg p-6 text-center flex flex-col justify-center min-h-[160px]">
+                            <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-2">Peso Total</div>
+                            <div className="text-3xl font-black font-mono">{result.totalWeight} g</div>
                         </div>
-                        <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-                            <div className="text-slate-400 text-sm mb-1">Quantidade de Cera</div>
-                            <div className="text-2xl font-bold text-amber-400 font-mono">{result.waxAmount}g</div>
+                        <div className="bg-surface border border-border/50 rounded-lg p-6 text-center flex flex-col justify-center min-h-[160px]">
+                            <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-2">Quantidade de Cera</div>
+                            <div className="text-3xl font-black text-foreground/70 font-mono">{result.waxAmount} g</div>
                         </div>
-                        <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4 text-center">
-                            <div className="text-blue-300 text-sm mb-1">Quantidade de Essência</div>
-                            <div className="text-3xl font-bold text-blue-400 font-mono">{result.essenceAmount}g</div>
+                        <div className="bg-brand/10 border border-brand/30 rounded-lg p-6 text-center flex flex-col justify-center min-h-[160px]">
+                            <div className="text-brand text-xs font-bold uppercase tracking-wider mb-2">Qtd de Essência</div>
+                            <div className="text-3xl font-black text-brand font-mono">{result.essenceAmount} g</div>
                         </div>
                     </div>
 
-                    <div className="mt-6 text-xs text-slate-500 text-center">
+                    <div className="mt-6 text-xs text-muted-foreground text-center">
                         Fórmula: Essência = Peso Total - (Peso Total / (1 + %Essência/100))
                     </div>
                 </div>

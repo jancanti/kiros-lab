@@ -45,9 +45,9 @@ export const ingredientsApi = {
 };
 
 /**
- * RECIPES API
+ * PRODUCTS API
  */
-export const recipesApi = {
+export const productsApi = {
     async getAll() {
         const { data, error } = await supabase
             .from('recipes')

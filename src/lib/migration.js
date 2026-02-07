@@ -44,8 +44,8 @@ export async function migrateLegacyBackup() {
             }
         }
 
-        // 4. Migrar Receitas (Ajustando referências de ingredientes)
-        console.log(`📖 Migrando ${recipes.length} receitas...`);
+        // 4. Migrar Produtos (Ajustando referências de ingredientes)
+        console.log(`📖 Migrando ${recipes.length} produtos...`);
         for (const recipe of recipes) {
             const updatedIngredients = recipe.ingredients.map(ri => ({
                 ...ri,

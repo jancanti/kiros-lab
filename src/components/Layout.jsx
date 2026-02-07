@@ -7,34 +7,59 @@ import {
     ClipboardList,
     Menu,
     X,
-    Cloud,
+    Sun,
+    Moon,
+    Monitor,
     Droplets
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
+import { useEffect } from 'react';
 
 const menuItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/' },
-    { icon: Droplets, label: 'Calculadora', path: '/essence' },
-    { icon: Beaker, label: 'Ingredientes', path: '/ingredients' },
-    { icon: BookOpen, label: 'Receitas', path: '/recipes' },
-    { icon: ClipboardList, label: 'Produção', path: '/orders' },
+    { icon: Droplets, label: 'Calculadora', path: '/calc' },
+    { icon: Beaker, label: 'Ingredientes', path: '/ingredientes' },
+    { icon: BookOpen, label: 'Produtos', path: '/produtos' },
+    { icon: ClipboardList, label: 'Produção', path: '/prod' },
 ];
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const isCloudEnabled = !!supabase;
+    const [theme, setTheme] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('kiros-theme');
+            if (saved) return saved;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return 'dark';
+    });
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === 'dark') {
+            root.classList.add('dark');
+        } else {
+            root.classList.remove('dark');
+        }
+        localStorage.setItem('kiros-theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
     return (
-        <div className="flex min-h-screen h-[100dvh] bg-slate-950 text-slate-50 font-sans overflow-hidden">
+        <div className="flex min-h-screen h-[100dvh] bg-background text-foreground font-sans overflow-hidden">
             {/* Mobile Header */}
-            <div className="lg:hidden md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between">
-                <Link to="/" className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
-                    Kiros Lab
+            <div className="lg:hidden md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-border p-4 flex items-center justify-between">
+                <Link to="/" className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-brand/10 rounded-lg flex items-center justify-center border border-brand/20">
+                        <Beaker className="text-brand" size={18} />
+                    </div>
+                    <span className="text-lg font-black tracking-tighter uppercase">Kiros Lab</span>
                 </Link>
                 <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                    className="p-2 text-slate-400 hover:text-white"
+                    className="p-2 text-muted-foreground hover:text-foreground"
                 >
                     {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                 </button>
@@ -42,12 +67,18 @@ export default function Layout() {
 
             {/* Sidebar */}
             <aside className={cn(
-                "fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 border-r border-slate-800 transition-transform lg:translate-x-0 md:translate-x-0 pb-20",
+                "fixed inset-y-0 left-0 z-40 w-64 bg-surface border-r border-border transition-transform lg:translate-x-0 md:translate-x-0 pb-20",
                 !isMobileMenuOpen && "-translate-x-full"
             )}>
                 <div className="p-6">
-                    <Link to="/" className="block text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-8 hover:opacity-80 transition-opacity">
-                        Kiros Lab
+                    <Link to="/" className="flex items-center gap-3 group mb-8">
+                        <div className="w-10 h-10 bg-brand/10 rounded-xl flex items-center justify-center border border-brand/20 group-hover:bg-brand/20 transition-all">
+                            <Beaker className="text-brand" size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tighter leading-none">KIROS LAB</h1>
+                            <p className="text-[10px] text-brand font-bold uppercase tracking-widest mt-1">Scent Studio</p>
+                        </div>
                     </Link>
                     <nav className="space-y-2">
                         {menuItems.map((item) => (
@@ -56,29 +87,38 @@ export default function Layout() {
                                 to={item.path}
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 className={({ isActive }) => cn(
-                                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
                                     isActive
-                                        ? "bg-blue-600/10 text-blue-400 border border-blue-600/20"
-                                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent"
+                                        ? "bg-brand/10 text-foreground border border-brand/20"
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
                             >
-                                <item.icon size={20} />
-                                <span className="font-medium">{item.label}</span>
+                                {({ isActive }) => (
+                                    <>
+                                        <item.icon size={20} className={cn("transition-colors", isActive ? "text-brand" : "")} />
+                                        <span className="font-medium">{item.label}</span>
+                                        {isActive && (
+                                            <div className="ml-auto w-1.5 h-1.5 bg-brand rounded-full shadow-[0_0_10px_rgba(190,253,94,0.5)]" />
+                                        )}
+                                    </>
+                                )}
                             </NavLink>
                         ))}
                     </nav>
-                </div>
 
-                {/* Cloud Status Indicator */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800/50 bg-slate-900/50">
-                    <div className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest border",
-                        isCloudEnabled ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                    )}>
-                        <Cloud size={14} className={isCloudEnabled ? "text-green-500" : "text-amber-500"} />
-                        <span>{isCloudEnabled ? 'Nuvem Conectada' : 'Modo Offline'}</span>
+                    <div className="pt-8 mt-8 border-t border-border">
+                        <button
+                            onClick={toggleTheme}
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted transition-all text-muted-foreground hover:text-foreground group"
+                        >
+                            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:bg-brand/10 group-hover:text-brand transition-colors">
+                                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                            </div>
+                            <span className="font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+                        </button>
                     </div>
                 </div>
+
             </aside>
 
             {/* Main Content */}
