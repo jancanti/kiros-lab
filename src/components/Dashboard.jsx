@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { ingredientsApi, recipesApi } from '../lib/api';
 import { migrateLegacyBackup } from '../lib/migration';
 import { supabase } from '../lib/supabase';
@@ -89,7 +90,7 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 relative overflow-hidden group">
+        <Link to="/recipes" className="p-6 rounded-xl bg-slate-900 border border-slate-800 relative overflow-hidden group hover:border-blue-500/50 transition-all hover:bg-slate-800/80">
           <div className="absolute right-[-10px] top-[-10px] text-slate-800 opacity-20 group-hover:opacity-40 transition-opacity">
             <ScrollText size={100} />
           </div>
@@ -97,9 +98,9 @@ export default function Dashboard() {
           <p className="text-5xl font-black text-white mt-2 relative z-10">
             {loading ? '...' : stats.recipes}
           </p>
-        </div>
+        </Link>
 
-        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 relative overflow-hidden group">
+        <Link to="/ingredients" className="p-6 rounded-xl bg-slate-900 border border-slate-800 relative overflow-hidden group hover:border-blue-500/50 transition-all hover:bg-slate-800/80">
           <div className="absolute right-[-10px] top-[-10px] text-slate-800 opacity-20 group-hover:opacity-40 transition-opacity">
             <ShoppingBasket size={100} />
           </div>
@@ -107,7 +108,7 @@ export default function Dashboard() {
           <p className="text-5xl font-black text-white mt-2 relative z-10">
             {loading ? '...' : stats.ingredients}
           </p>
-        </div>
+        </Link>
 
         <div className="p-6 rounded-xl bg-slate-950/50 border border-slate-800/50 flex items-center justify-center border-dashed">
           <div className="text-center">

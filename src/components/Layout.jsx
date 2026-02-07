@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     Beaker,
@@ -29,9 +29,9 @@ export default function Layout() {
         <div className="flex min-h-screen h-[100dvh] bg-slate-950 text-slate-50 font-sans overflow-hidden">
             {/* Mobile Header */}
             <div className="lg:hidden md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between">
-                <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                <Link to="/" className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
                     Kiros Lab
-                </h1>
+                </Link>
                 <button
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                     className="p-2 text-slate-400 hover:text-white"
@@ -46,9 +46,9 @@ export default function Layout() {
                 !isMobileMenuOpen && "-translate-x-full"
             )}>
                 <div className="p-6">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-8">
+                    <Link to="/" className="block text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-8 hover:opacity-80 transition-opacity">
                         Kiros Lab
-                    </h1>
+                    </Link>
                     <nav className="space-y-2">
                         {menuItems.map((item) => (
                             <NavLink
