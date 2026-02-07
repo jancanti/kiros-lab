@@ -328,44 +328,49 @@ export default function Recipes() {
         {recipes?.map(recipe => (
           <div key={recipe.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div
-              className="p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:bg-slate-800/50 transition-colors gap-3"
+              className="p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:bg-slate-800/50 transition-colors gap-4"
               onClick={() => setExpandedRecipe(expandedRecipe === recipe.id ? null : recipe.id)}
             >
-              <div className="flex items-start gap-3">
-                <div className="mt-1">
+              <div className="flex items-start gap-3 flex-1">
+                <div className="mt-1 shrink-0">
                   {expandedRecipe === recipe.id ? <ChevronDown size={20} className="text-blue-500" /> : <ChevronRight size={20} className="text-slate-500" />}
                 </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg">{recipe.name}</h3>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
-                    <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Rendimento: {recipe.yield} un</span>
-                    <span className="text-green-400 font-mono">
+                <div className="space-y-1 w-full">
+                  <h3 className="font-bold text-white text-lg tracking-tight">{recipe.name}</h3>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] md:text-xs">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <span className="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">Rendimento: {recipe.yield} un</span>
+                    </span>
+                    <span className="text-green-400 font-mono font-bold flex items-center gap-1">
                       Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(recipe.ingredients))}
+                    </span>
+                    <span className="text-blue-400 font-mono font-bold flex items-center gap-1">
+                      Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(recipe.ingredients) * 3)}
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-1 border-t border-slate-800 pt-3 md:border-0 md:pt-0">
+              <div className="flex items-center justify-end gap-1 md:gap-2 self-end md:self-center">
                 <button
                   onClick={(e) => { e.stopPropagation(); duplicateRecipe(recipe); }}
-                  className="text-slate-500 hover:text-blue-400 p-2 rounded-lg hover:bg-slate-800"
+                  className="text-slate-500 hover:text-blue-400 p-2 rounded-lg hover:bg-slate-800 transition-colors"
                   title="Duplicar"
                 >
-                  <Copy size={20} />
+                  <Copy size={18} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); startEditing(recipe); }}
-                  className="text-slate-500 hover:text-green-400 p-2 rounded-lg hover:bg-slate-800"
+                  className="text-slate-500 hover:text-green-400 p-2 rounded-lg hover:bg-slate-800 transition-colors"
                   title="Editar"
                 >
-                  <Edit size={20} />
+                  <Edit size={18} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteRecipe(recipe.id); }}
-                  className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800"
+                  className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800 transition-colors"
                   title="Excluir"
                 >
-                  <Trash2 size={20} />
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>
