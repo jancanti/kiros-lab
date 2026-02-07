@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
-import { Plus, Trash2, ChevronRight, ChevronDown, Save, Edit, Copy, Search, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ingredientsApi, recipesApi } from '../lib/api';
+import { Plus, Trash2, ChevronRight, ChevronDown, Save, Edit, Copy, Search, X, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Recipes() {
-  const allIngredients = useLiveQuery(() => db.ingredients.orderBy('name').toArray());
-  const recipes = useLiveQuery(() => db.recipes.orderBy('name').toArray());
+  const [allIngredients, setAllIngredients] = useState([]);
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState(null); // Track which recipe is being edited
+  const [editingId, setEditingId] = useState(null);
   const [expandedRecipe, setExpandedRecipe] = useState(null);
 
   const [newRecipe, setNewRecipe] = useState({
@@ -23,10 +23,30 @@ export default function Recipes() {
   const [ingredientSearch, setIngredientSearch] = useState('');
   const [isIngredientDropdownOpen, setIsIngredientDropdownOpen] = useState(false);
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [ings, recs] = await Promise.all([
+        ingredientsApi.getAll(),
+        recipesApi.getAll()
+      ]);
+      setAllIngredients(ings);
+      setRecipes(recs);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addIngredientToRecipe = () => {
     if (!selectedIngId || !selectedIngQty) return;
 
-    const ing = allIngredients.find(i => i.id === Number(selectedIngId));
+    const ing = allIngredients.find(i => i.id === selectedIngId);
     if (!ing) return;
 
     setNewRecipe(prev => ({
@@ -65,16 +85,14 @@ export default function Recipes() {
 
     try {
       if (editingId) {
-        await db.recipes.update(editingId, recipeData);
+        await recipesApi.update(editingId, recipeData);
       } else {
-        await db.recipes.add(recipeData);
+        await recipesApi.add(recipeData);
       }
       setNewRecipe({ name: '', ingredients: [], yieldVal: 1 });
       setIsCreating(false);
       setEditingId(null);
-      setIngredientSearch('');
-      setSelectedIngId('');
-      setSelectedIngQty('');
+      fetchData();
     } catch (error) {
       console.error('Failed to save recipe:', error);
     }
@@ -82,7 +100,12 @@ export default function Recipes() {
 
   const deleteRecipe = async (id) => {
     if (window.confirm('Excluir esta receita?')) {
-      await db.recipes.delete(id);
+      try {
+        await recipesApi.delete(id);
+        fetchData();
+      } catch (error) {
+        console.error('Failed to delete recipe:', error);
+      }
     }
   };
 
@@ -95,12 +118,10 @@ export default function Recipes() {
     };
 
     try {
-      const id = await db.recipes.add(recipeData);
-      // Optional: Automatically open the new recipe for editing
-      startEditing({ ...recipeData, id });
+      await recipesApi.add(recipeData);
+      fetchData();
     } catch (error) {
       console.error('Failed to duplicate recipe:', error);
-      alert('Erro ao duplicar receita.');
     }
   };
 
@@ -112,7 +133,6 @@ export default function Recipes() {
     });
     setEditingId(recipe.id);
     setIsCreating(true);
-    // Scroll to top or ensure form is visible
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -120,12 +140,8 @@ export default function Recipes() {
     setIsCreating(false);
     setEditingId(null);
     setNewRecipe({ name: '', ingredients: [], yieldVal: 1 });
-    setIngredientSearch('');
-    setSelectedIngId('');
-    setSelectedIngQty('');
   };
 
-  // Helper to find ingredient cost
   const getIngredientCost = (ingId) => {
     const ing = allIngredients?.find(i => i.id === ingId);
     return ing ? (ing.cost || 0) : 0;
@@ -141,7 +157,10 @@ export default function Recipes() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-white">Receitas</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-3xl font-bold text-white">Receitas</h2>
+          {loading && <Loader2 className="animate-spin text-blue-500" size={24} />}
+        </div>
         <button
           onClick={isCreating ? cancelEditing : () => setIsCreating(true)}
           className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
@@ -163,7 +182,7 @@ export default function Recipes() {
                 type="text"
                 value={newRecipe.name}
                 onChange={e => setNewRecipe({ ...newRecipe, name: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                 placeholder="ex: Bolo de Cenoura"
               />
             </div>
@@ -173,7 +192,7 @@ export default function Recipes() {
                 type="number"
                 value={newRecipe.yieldVal}
                 onChange={e => setNewRecipe({ ...newRecipe, yieldVal: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                 placeholder="1"
               />
             </div>
@@ -181,8 +200,8 @@ export default function Recipes() {
 
           <div className="border-t border-slate-800 pt-4">
             <h3 className="text-sm font-medium text-slate-400 mb-3">Composição</h3>
-            <div className="flex gap-3 mb-4 items-end">
-              <div className="flex-1">
+            <div className="flex flex-col md:flex-row gap-3 mb-4 items-end">
+              <div className="flex-1 w-full">
                 <div className="relative">
                   <div className="relative">
                     <input
@@ -216,7 +235,6 @@ export default function Recipes() {
                     <div className="absolute z-10 w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                       {allIngredients
                         ?.filter(ing => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase()))
-                        .sort((a, b) => a.name.localeCompare(b.name))
                         .map(ing => (
                           <div
                             key={ing.id}
@@ -228,66 +246,62 @@ export default function Recipes() {
                             className="px-4 py-2 hover:bg-slate-800 cursor-pointer text-sm text-slate-300 flex justify-between"
                           >
                             <span>{ing.name} ({ing.unit})</span>
-                            <span className="font-mono text-slate-500">
+                            <span className="font-mono text-slate-500 text-xs">
                               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ing.cost || 0)}
                             </span>
                           </div>
                         ))}
-                      {allIngredients?.length === 0 && (
-                        <div className="px-4 py-2 text-slate-500 text-sm">Nenhum ingrediente cadastrado.</div>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
-              <div className="w-32">
+              <div className="w-full md:w-32">
                 <input
                   type="number"
                   value={selectedIngQty}
                   onChange={e => setSelectedIngQty(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                   placeholder="Qtd"
                 />
               </div>
               <button
                 onClick={addIngredientToRecipe}
-                className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg"
+                className="w-full md:w-auto bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Adicionar
               </button>
             </div>
 
             {newRecipe.ingredients.length > 0 && (
-              <div className="bg-slate-950 p-4 rounded-lg">
-                <ul className="space-y-2 mb-4">
-                  {[...newRecipe.ingredients].sort((a, b) => a.name.localeCompare(b.name)).map((item, idx) => {
+              <div className="bg-slate-950 p-4 rounded-lg overflow-x-auto">
+                <ul className="space-y-2 mb-4 min-w-[300px]">
+                  {newRecipe.ingredients.map((item, idx) => {
                     const cost = item.quantity * getIngredientCost(item.ingredientId);
                     return (
-                      <li key={idx} className="flex justify-between items-center text-sm">
-                        <span className="text-slate-300">{item.name}</span>
-                        <div className="flex items-center gap-4">
-                          <span className="text-slate-500">{item.quantity}</span>
-                          <span className="text-slate-600">{item.unit}</span>
-                          <span className="text-slate-400 font-mono">
+                      <li key={idx} className="flex justify-between items-center text-sm gap-2">
+                        <span className="text-slate-300 truncate flex-1">{item.name}</span>
+                        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+                          <span className="text-slate-500">{item.quantity} {item.unit}</span>
+                          <span className="text-slate-400 font-mono hidden md:inline">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cost)}
                           </span>
-                          <button onClick={() => removeIngredientFromRecipe(item.ingredientId)} className="text-red-400 hover:text-red-300">
-                            <Trash2 size={14} />
+                          <button onClick={() => removeIngredientFromRecipe(item.ingredientId)} className="text-red-400 hover:text-red-300 p-1">
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
-                <div className="border-t border-slate-800 pt-2 flex justify-end gap-4 text-sm">
-                  <div>
+                <div className="border-t border-slate-800 pt-2 flex flex-col md:flex-row justify-end gap-2 md:gap-6 text-sm">
+                  <div className="flex justify-between md:block">
                     <span className="text-slate-400">Total Custo: </span>
                     <span className="text-green-400 font-bold font-mono">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(newRecipe.ingredients))}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-400">Sugerido: </span>
+                  <div className="flex justify-between md:block">
+                    <span className="text-slate-400">Sugerido (3x): </span>
                     <span className="text-blue-400 font-bold font-mono">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(newRecipe.ingredients) * 3)}
                     </span>
@@ -301,7 +315,7 @@ export default function Recipes() {
             <button
               onClick={saveRecipe}
               disabled={!newRecipe.name || newRecipe.ingredients.length === 0}
-              className="bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2"
+              className="w-full md:w-auto bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg"
             >
               <Save size={18} /> {editingId ? 'Atualizar Receita' : 'Salvar Receita'}
             </button>
@@ -312,98 +326,100 @@ export default function Recipes() {
       {/* Recipe List */}
       <div className="grid gap-4">
         {recipes?.map(recipe => (
-          <div key={recipe.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div key={recipe.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
             <div
-              className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800/50 transition-colors"
+              className="p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:bg-slate-800/50 transition-colors gap-3"
               onClick={() => setExpandedRecipe(expandedRecipe === recipe.id ? null : recipe.id)}
             >
-              <div className="flex items-center gap-3">
-                {expandedRecipe === recipe.id ? <ChevronDown size={20} className="text-blue-500" /> : <ChevronRight size={20} className="text-slate-500" />}
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  {expandedRecipe === recipe.id ? <ChevronDown size={20} className="text-blue-500" /> : <ChevronRight size={20} className="text-slate-500" />}
+                </div>
                 <div>
-                  <h3 className="font-medium text-white">{recipe.name}</h3>
-                  <div className="flex gap-4 text-xs text-slate-500">
-                    <span>Rendimento: {recipe.yield} unidade(s)</span>
-                    <span className="text-green-500 font-mono">
+                  <h3 className="font-bold text-white text-lg">{recipe.name}</h3>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
+                    <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Rendimento: {recipe.yield} un</span>
+                    <span className="text-green-400 font-mono">
                       Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(recipe.ingredients))}
-                    </span>
-                    <span className="text-blue-500 font-mono">
-                      Sugerido: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(recipe.ingredients) * 3)}
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-end gap-1 border-t border-slate-800 pt-3 md:border-0 md:pt-0">
                 <button
                   onClick={(e) => { e.stopPropagation(); duplicateRecipe(recipe); }}
-                  className="text-slate-600 hover:text-blue-400 p-2"
+                  className="text-slate-500 hover:text-blue-400 p-2 rounded-lg hover:bg-slate-800"
                   title="Duplicar"
                 >
-                  <Copy size={18} />
+                  <Copy size={20} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); startEditing(recipe); }}
-                  className="text-slate-600 hover:text-green-400 p-2"
+                  className="text-slate-500 hover:text-green-400 p-2 rounded-lg hover:bg-slate-800"
                   title="Editar"
                 >
-                  <Edit size={18} />
+                  <Edit size={20} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteRecipe(recipe.id); }}
-                  className="text-slate-600 hover:text-red-400 p-2"
+                  className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800"
                   title="Excluir"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={20} />
                 </button>
               </div>
             </div>
 
             {expandedRecipe === recipe.id && (
-              <div className="px-4 md:px-12 pb-4 pt-0 overflow-x-auto">
+              <div className="px-4 md:px-12 pb-6 pt-0 overflow-x-auto">
                 <table className="w-full text-sm text-left text-slate-400 min-w-[400px]">
-                  <thead className="text-xs uppercase bg-slate-950/50">
+                  <thead className="text-[10px] uppercase bg-slate-950/50 tracking-wider">
                     <tr>
-                      <th className="px-2 md:px-4 py-2 text-xs">Ingrediente</th>
-                      <th className="px-2 md:px-4 py-2 text-xs">Qtd</th>
-                      <th className="px-2 md:px-4 py-2 text-xs">Un</th>
-                      <th className="px-2 md:px-4 py-2 text-xs">Custo</th>
+                      <th className="px-4 py-3">Ingrediente</th>
+                      <th className="px-4 py-3">Qtd</th>
+                      <th className="px-4 py-3">Un</th>
+                      <th className="px-4 py-3 text-right">Custo</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {[...recipe.ingredients].sort((a, b) => a.name.localeCompare(b.name)).map((ing, i) => {
+                  <tbody className="divide-y divide-slate-800 border-b border-slate-800">
+                    {recipe.ingredients.map((ing, i) => {
                       const cost = ing.quantity * getIngredientCost(ing.ingredientId);
                       return (
-                        <tr key={i}>
-                          <td className="px-2 md:px-4 py-2">{ing.name}</td>
-                          <td className="px-2 md:px-4 py-2">{ing.quantity}</td>
-                          <td className="px-2 md:px-4 py-2 text-slate-500">{ing.unit}</td>
-                          <td className="px-2 md:px-4 py-2 font-mono text-slate-300 text-xs md:text-sm">
+                        <tr key={i} className="hover:bg-slate-950/20">
+                          <td className="px-4 py-3 text-slate-300">{ing.name}</td>
+                          <td className="px-4 py-3 font-medium">{ing.quantity}</td>
+                          <td className="px-4 py-3 text-slate-500">{ing.unit}</td>
+                          <td className="px-4 py-3 font-mono text-slate-400 text-xs text-right">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cost)}
                           </td>
                         </tr>
                       );
                     })}
-                    <tr className="bg-slate-950/30 font-bold text-white">
-                      <td className="px-2 md:px-4 py-2 text-right text-xs md:text-sm" colSpan={3}>Total</td>
-                      <td className="px-2 md:px-4 py-2 font-mono text-green-400 text-xs md:text-sm">
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-950/50 font-bold text-white">
+                      <td className="px-4 py-3 text-right text-xs" colSpan={3}>Custo Total</td>
+                      <td className="px-4 py-3 font-mono text-green-400 text-right">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(recipe.ingredients))}
                       </td>
                     </tr>
-                    <tr className="bg-slate-950/30 font-bold text-white">
-                      <td className="px-2 md:px-4 py-2 text-right text-blue-300 text-xs md:text-sm" colSpan={3}>Sugerido</td>
-                      <td className="px-2 md:px-4 py-2 font-mono text-blue-400 text-xs md:text-sm">
+                    <tr className="bg-slate-950/50 font-bold text-white border-t border-slate-800/50">
+                      <td className="px-4 py-3 text-right text-xs text-blue-300" colSpan={3}>Venda Sugerida (3x)</td>
+                      <td className="px-4 py-3 font-mono text-blue-400 text-right">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost(recipe.ingredients) * 3)}
                       </td>
                     </tr>
-                  </tbody>
+                  </tfoot>
                 </table>
               </div>
             )}
           </div>
         ))}
 
-        {recipes?.length === 0 && !isCreating && (
-          <div className="text-center py-12 text-slate-500">
-            Nenhuma receita criada ainda. Clique em "Nova Receita" para começar.
+        {!loading && recipes?.length === 0 && !isCreating && (
+          <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-xl text-center py-20 text-slate-500">
+            Nenhuma receita criada ainda. <br />
+            Clique em <span className="text-blue-500 font-bold">"Nova Receita"</span> para começar.
           </div>
         )}
       </div>

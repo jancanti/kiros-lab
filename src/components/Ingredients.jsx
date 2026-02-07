@@ -1,30 +1,44 @@
-import React, { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
-import { Plus, Trash2, Save, Edit, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ingredientsApi, recipesApi } from '../lib/api';
+import { Plus, Trash2, Save, Edit, X, Loader2 } from 'lucide-react';
 
 export default function Ingredients() {
-    const ingredients = useLiveQuery(async () => {
-        const items = await db.ingredients.toArray();
-        return items.sort((a, b) => a.name.localeCompare(b.name));
-    });
+    const [ingredients, setIngredients] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [newIng, setNewIng] = useState({ name: '', unit: 'kg', cost: 0 });
 
     // Inline editing state
     const [editingId, setEditingId] = useState(null);
     const [editIng, setEditIng] = useState({ name: '', unit: '', cost: 0 });
 
+    useEffect(() => {
+        fetchIngredients();
+    }, []);
+
+    const fetchIngredients = async () => {
+        setLoading(true);
+        try {
+            const data = await ingredientsApi.getAll();
+            setIngredients(data);
+        } catch (error) {
+            console.error('Failed to fetch ingredients:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const addIngredient = async (e) => {
         e.preventDefault();
         if (!newIng.name) return;
 
         try {
-            await db.ingredients.add({
+            await ingredientsApi.add({
                 name: newIng.name,
                 unit: newIng.unit,
                 cost: Number(newIng.cost)
             });
             setNewIng({ name: '', unit: 'kg', cost: 0 });
+            fetchIngredients();
         } catch (error) {
             console.error('Failed to add ingredient:', error);
         }
@@ -32,7 +46,12 @@ export default function Ingredients() {
 
     const deleteIngredient = async (id) => {
         if (window.confirm('Excluir este ingrediente?')) {
-            await db.ingredients.delete(id);
+            try {
+                await ingredientsApi.delete(id);
+                fetchIngredients();
+            } catch (error) {
+                console.error('Failed to delete ingredient:', error);
+            }
         }
     };
 
@@ -50,15 +69,16 @@ export default function Ingredients() {
         if (!editIng.name) return;
 
         try {
-            // Update the ingredient itself
-            await db.ingredients.update(editingId, {
+            // Update the ingredient in Supabase
+            await ingredientsApi.update(editingId, {
                 name: editIng.name,
                 unit: editIng.unit,
                 cost: Number(editIng.cost)
             });
 
             // Cascade update to all recipes containing this ingredient
-            const allRecipes = await db.recipes.toArray();
+            // (Note: In a pure cloud model, we fetch recipes and update them one by one)
+            const allRecipes = await recipesApi.getAll();
             for (const recipe of allRecipes) {
                 const hasIngredient = recipe.ingredients.some(ing => ing.ingredientId === editingId);
                 if (hasIngredient) {
@@ -67,12 +87,13 @@ export default function Ingredients() {
                             ? { ...ing, name: editIng.name, unit: editIng.unit }
                             : ing
                     );
-                    await db.recipes.update(recipe.id, { ingredients: updatedIngredients });
+                    await recipesApi.update(recipe.id, { ingredients: updatedIngredients });
                 }
             }
 
             setEditingId(null);
             setEditIng({ name: '', unit: '', cost: 0 });
+            fetchIngredients();
         } catch (error) {
             console.error('Failed to update ingredient:', error);
         }
@@ -82,6 +103,7 @@ export default function Ingredients() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-white">Ingredientes</h2>
+                {loading && <Loader2 className="animate-spin text-blue-500" size={24} />}
             </div>
 
             {/* Add Form */}
@@ -149,7 +171,7 @@ export default function Ingredients() {
                                 {editingId === ing.id ? (
                                     // Editing Mode
                                     <>
-                                        <td className="px-6 py-3">
+                                        <td className="px-4 md:px-6 py-3">
                                             <input
                                                 type="text"
                                                 value={editIng.name}
@@ -157,7 +179,7 @@ export default function Ingredients() {
                                                 className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-blue-500"
                                             />
                                         </td>
-                                        <td className="px-6 py-3">
+                                        <td className="px-4 md:px-6 py-3">
                                             <select
                                                 value={editIng.unit}
                                                 onChange={e => setEditIng({ ...editIng, unit: e.target.value })}
@@ -170,7 +192,7 @@ export default function Ingredients() {
                                                 <option value="un">un</option>
                                             </select>
                                         </td>
-                                        <td className="px-6 py-3">
+                                        <td className="px-4 md:px-6 py-3">
                                             <input
                                                 type="number"
                                                 step="0.01"
@@ -179,7 +201,7 @@ export default function Ingredients() {
                                                 className="w-24 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-blue-500"
                                             />
                                         </td>
-                                        <td className="px-6 py-3 text-right">
+                                        <td className="px-4 md:px-6 py-3 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={saveEditing}
@@ -228,9 +250,9 @@ export default function Ingredients() {
                                 )}
                             </tr>
                         ))}
-                        {ingredients?.length === 0 && (
+                        {!loading && ingredients?.length === 0 && (
                             <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                                <td colSpan={4} className="px-4 md:px-6 py-8 text-center text-slate-500">
                                     Nenhum ingrediente adicionado ainda.
                                 </td>
                             </tr>
