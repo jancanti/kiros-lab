@@ -140,7 +140,7 @@ export default function Orders() {
             </div>
 
             {/* Selection Section */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl rounded-full translate-x-16 -translate-y-16"></div>
 
                 <div className="flex items-center gap-3 mb-8 font-bold relative z-10">
