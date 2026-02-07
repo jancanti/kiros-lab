@@ -133,14 +133,14 @@ export default function Ingredients() {
             </div>
 
             {/* List */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-                <table className="w-full text-left">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+                <table className="w-full text-left min-w-[500px] md:min-w-full">
                     <thead className="bg-slate-950 text-slate-400 text-xs uppercase font-medium">
                         <tr>
-                            <th className="px-6 py-4">Nome</th>
-                            <th className="px-6 py-4">Unidade</th>
-                            <th className="px-6 py-4">Custo</th>
-                            <th className="px-6 py-4 text-right">Ações</th>
+                            <th className="px-4 md:px-6 py-4">Nome</th>
+                            <th className="px-4 md:px-6 py-4">Unidade</th>
+                            <th className="px-4 md:px-6 py-4">Custo</th>
+                            <th className="px-4 md:px-6 py-4 text-right">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
@@ -201,26 +201,26 @@ export default function Ingredients() {
                                 ) : (
                                     // Display Mode
                                     <>
-                                        <td className="px-6 py-4 text-slate-200">{ing.name}</td>
-                                        <td className="px-6 py-4 text-slate-400 font-mono text-sm">{ing.unit}</td>
-                                        <td className="px-6 py-4 text-slate-400 font-mono text-sm">
+                                        <td className="px-4 md:px-6 py-4 text-slate-200">{ing.name}</td>
+                                        <td className="px-4 md:px-6 py-4 text-slate-400 font-mono text-sm">{ing.unit}</td>
+                                        <td className="px-4 md:px-6 py-4 text-slate-400 font-mono text-sm">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ing.cost || 0)}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                        <td className="px-4 md:px-6 py-4 text-right whitespace-nowrap">
+                                            <div className="flex items-center justify-end gap-3">
                                                 <button
                                                     onClick={() => startEditing(ing)}
-                                                    className="text-slate-500 hover:text-blue-400 transition-colors"
+                                                    className="text-slate-500 hover:text-blue-400 transition-colors p-1"
                                                     title="Editar"
                                                 >
-                                                    <Edit size={16} />
+                                                    <Edit size={18} />
                                                 </button>
                                                 <button
                                                     onClick={() => deleteIngredient(ing.id)}
-                                                    className="text-slate-500 hover:text-red-400 transition-colors"
+                                                    className="text-slate-500 hover:text-red-400 transition-colors p-1"
                                                     title="Excluir"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
