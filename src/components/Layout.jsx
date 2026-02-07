@@ -41,7 +41,7 @@ export default function Layout() {
     const isCloudEnabled = !!supabase;
 
     return (
-        <div className="flex h-screen bg-slate-950 text-slate-50 font-sans">
+        <div className="flex min-h-screen h-[100dvh] bg-slate-950 text-slate-50 font-sans overflow-hidden">
             {/* Mobile Header (visible only on phones) */}
             <div className="lg:hidden md:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between">
                 <h1 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
