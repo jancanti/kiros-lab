@@ -15,10 +15,10 @@ import { supabase } from '../lib/supabase';
 
 const menuItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/' },
+    { icon: Droplets, label: 'Calculadora', path: '/essence' },
     { icon: Beaker, label: 'Ingredientes', path: '/ingredients' },
     { icon: BookOpen, label: 'Receitas', path: '/recipes' },
     { icon: ClipboardList, label: 'Produção', path: '/orders' },
-    { icon: Droplets, label: 'Calc. Essências', path: '/essence' },
 ];
 
 export default function Layout() {
