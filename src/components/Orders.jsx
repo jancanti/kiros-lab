@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { recipesApi, ordersApi } from '../lib/api';
-import { Calculator, ClipboardList, Plus, Trash2, Loader2, Search, X, Save, History, ChevronRight, ChevronDown, Calendar } from 'lucide-react';
+import { Calculator, ClipboardList, Plus, Trash2, Loader2, Search, X, Save, History, ChevronRight, ChevronDown, Calendar, Droplets } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Orders() {
