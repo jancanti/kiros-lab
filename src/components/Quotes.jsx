@@ -51,6 +51,7 @@ export default function Quotes() {
     const [quantityInput, setQuantityInput] = useState('10');
     const [productSearch, setProductSearch] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [unitCostInput, setUnitCostInput] = useState('');
 
     // History and Filter state
     const [historySearch, setHistorySearch] = useState('');
@@ -99,13 +100,23 @@ export default function Quotes() {
         return getProductUnitCost(selectedProduct);
     }, [selectedProduct, allIngredients]);
 
+    // Set custom unit cost input when product changes
+    useEffect(() => {
+        if (selectedProduct) {
+            const baseCost = getProductUnitCost(selectedProduct);
+            setUnitCostInput(baseCost.toFixed(2));
+        } else {
+            setUnitCostInput('');
+        }
+    }, [selectedProduct, allIngredients]);
+
     // Add selected product to staging list
     const handleAddItemToStaging = (e) => {
         e.preventDefault();
         if (!selectedProductId || !quantityInput) return;
 
         const qty = Number(quantityInput) || 10;
-        const unitCost = currentUnitCost;
+        const unitCost = Number(unitCostInput) || 0;
 
         setStagingItems(prev => {
             const existingIndex = prev.findIndex(item => item.productId === selectedProductId);
@@ -132,6 +143,7 @@ export default function Quotes() {
         setSelectedProductId('');
         setProductSearch('');
         setQuantityInput('10');
+        setUnitCostInput('');
         setIsDropdownOpen(false);
     };
 
@@ -367,7 +379,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
 
                         <form onSubmit={handleAddItemToStaging} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                             {/* Product selection search box */}
-                            <div className="md:col-span-6 space-y-1.5 relative">
+                            <div className="md:col-span-5 space-y-1.5 relative">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Produto</label>
                                 <div className="relative">
                                     <input
@@ -380,7 +392,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                             if (!e.target.value) setSelectedProductId('');
                                         }}
                                         onFocus={() => setIsDropdownOpen(true)}
-                                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 pl-10 text-sm text-foreground focus:outline-none focus:border-brand transition-all"
+                                        className="w-full bg-background border border-border rounded-xl px-4 py-2.5 pl-10 text-sm text-foreground focus:outline-none focus:border-brand transition-all font-medium"
                                     />
                                     <Search className="absolute left-3.5 top-3.5 text-muted-foreground" size={14} />
                                     {productSearch && (
@@ -417,15 +429,33 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                 )}
                             </div>
 
-                            {/* Quantity Input */}
+                            {/* Custom Unit Cost Input */}
                             <div className="md:col-span-3 space-y-1.5">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Custo Unit. (R$)</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0,00"
+                                        value={unitCostInput}
+                                        onChange={e => setUnitCostInput(e.target.value)}
+                                        disabled={!selectedProductId}
+                                        className="w-full bg-background border border-border disabled:opacity-50 disabled:cursor-not-allowed rounded-xl px-4 py-2.5 pl-9 text-sm font-mono font-bold focus:outline-none focus:border-brand transition-all"
+                                    />
+                                    <span className="absolute left-3.5 top-3.5 text-muted-foreground text-xs font-bold font-sans">R$</span>
+                                </div>
+                            </div>
+
+                            {/* Quantity Input */}
+                            <div className="md:col-span-2 space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Qtd</label>
                                 <input
                                     type="number"
                                     min="1"
                                     value={quantityInput}
                                     onChange={e => setQuantityInput(e.target.value)}
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-center font-bold focus:outline-none focus:border-brand"
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-center font-bold focus:outline-none focus:border-brand font-mono"
                                 />
                             </div>
 
@@ -433,9 +463,9 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                             <button
                                 type="submit"
                                 disabled={!selectedProductId}
-                                className="md:col-span-3 bg-brand hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-black px-4 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md shadow-brand/10 uppercase text-[10px] tracking-wider h-11"
+                                className="md:col-span-2 bg-brand hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-black px-4 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md shadow-brand/10 uppercase text-[10px] tracking-wider h-11"
                             >
-                                <Plus size={14} /> Inserir Item
+                                <Plus size={14} /> Inserir
                             </button>
                         </form>
                     </div>
