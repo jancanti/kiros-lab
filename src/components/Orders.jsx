@@ -194,7 +194,7 @@ export default function Orders() {
                                                 setRecipeSearch(r.name);
                                                 setIsDropdownOpen(false);
                                             }}
-                                            className="px-4 py-3 hover:bg-slate-800 cursor-pointer text-sm text-slate-300 flex justify-between items-center group"
+                                            className="px-4 py-3 hover:bg-accent cursor-pointer text-sm text-foreground flex justify-between items-center group transition-colors"
                                         >
                                             <span className="group-hover:text-brand transition-colors font-bold">{r.name}</span>
                                             <span className="text-[10px] bg-background px-2 py-1 rounded text-muted-foreground uppercase border border-border/50">Rend: {r.yield} un</span>

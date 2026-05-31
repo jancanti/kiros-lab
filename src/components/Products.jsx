@@ -96,7 +96,7 @@ export default function Products() {
       setEditingId(null);
       fetchData();
     } catch (error) {
-      console.error('Failed to save recipe:', error);
+      console.error('Failed to save product:', error);
     }
   };
 
@@ -106,7 +106,7 @@ export default function Products() {
         await productsApi.delete(id);
         fetchData();
       } catch (error) {
-        console.error('Failed to delete recipe:', error);
+        console.error('Failed to delete product:', error);
       }
     }
   };
@@ -121,10 +121,10 @@ export default function Products() {
     };
 
     try {
-      await productsApi.add(recipeData);
+      await productsApi.add(productData);
       fetchData();
     } catch (error) {
-      console.error('Failed to duplicate recipe:', error);
+      console.error('Failed to duplicate product:', error);
     }
   };
 
@@ -340,7 +340,7 @@ export default function Products() {
         </div>
       )}
 
-      {/* Recipe List */}
+      {/* Product List */}
       <div className="grid gap-4">
         {products?.map(product => (
           <div key={product.id} className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">

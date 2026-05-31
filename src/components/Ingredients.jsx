@@ -168,7 +168,7 @@ export default function Ingredients() {
                     </thead>
                     <tbody className="divide-y divide-border/50">
                         {ingredients?.map((ing) => (
-                            <tr key={ing.id} className="hover:bg-slate-800/50 transition-colors">
+                            <tr key={ing.id} className="hover:bg-muted/70 transition-colors">
                                 {editingId === ing.id ? (
                                     // Editing Mode
                                     <>

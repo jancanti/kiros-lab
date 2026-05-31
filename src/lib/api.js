@@ -120,3 +120,37 @@ export const ordersApi = {
         return true;
     }
 };
+
+/**
+ * QUOTES API
+ */
+export const quotesApi = {
+    async getAll() {
+        const { data, error } = await supabase
+            .from('quotes')
+            .select('*')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
+
+    async add(quote) {
+        const { data, error } = await supabase
+            .from('quotes')
+            .insert([quote])
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    async delete(id) {
+        const { error } = await supabase
+            .from('quotes')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
+        return true;
+    }
+};
+

@@ -6,6 +6,7 @@ import Ingredients from './components/Ingredients';
 import Products from './components/Products';
 import Orders from './components/Orders';
 import EssenceCalculator from './components/EssenceCalculator';
+import Quotes from './components/Quotes';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
           <Route path="produtos" element={<Products />} />
           <Route path="prod" element={<Orders />} />
           <Route path="calc" element={<EssenceCalculator />} />
+          <Route path="orcamentos" element={<Quotes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
