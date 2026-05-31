@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { productsApi, ordersApi } from '../lib/api';
-import { Calculator, ClipboardList, Plus, Trash2, Loader2, Search, X, Save, History, ChevronRight, ChevronDown, Calendar, Droplets } from 'lucide-react';
+import { Calculator, ClipboardList, Plus, Trash2, Loader2, Search, X, Save, History, ChevronRight, ChevronDown, Calendar, Droplets, Printer } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Orders() {
@@ -132,8 +132,39 @@ export default function Orders() {
         }
     };
 
+    const handlePrint = (orderId) => {
+        setExpandedOrder(orderId);
+        setTimeout(() => {
+            window.print();
+        }, 150);
+    };
+
     return (
         <div className="space-y-10 pb-20">
+            
+            {/* Custom Print Style injected on-demand */}
+            <style>{`
+                @media print {
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    #print-order-sheet, #print-order-sheet * {
+                        visibility: visible !important;
+                    }
+                    #print-order-sheet {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        background: white !important;
+                        color: black !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        padding: 0 !important;
+                    }
+                }
+            `}</style>
+
             <div className="flex items-center gap-4">
                 <h2 className="text-3xl font-bold tracking-tight">Planejamento de Produção</h2>
                 {(loading || saving) && <Loader2 className="animate-spin text-brand" size={24} />}
@@ -337,12 +368,22 @@ export default function Orders() {
                                         </div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={(e) => deleteOrder(order.id, e)}
-                                    className="self-end md:self-center p-2 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all mt-4 md:mt-0"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
+                                <div className="flex items-center gap-2 self-end md:self-center mt-4 md:mt-0">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handlePrint(order.id); }}
+                                        className="p-2.5 text-muted-foreground hover:text-brand hover:bg-brand/10 rounded-lg transition-all"
+                                        title="Imprimir Ordem de Produção"
+                                    >
+                                        <Printer size={18} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => deleteOrder(order.id, e)}
+                                        className="p-2.5 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                                        title="Excluir"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
                             </div>
 
                             {expandedOrder === order.id && (
@@ -368,6 +409,77 @@ export default function Orders() {
                                             </tbody>
                                         </table>
                                     </div>
+
+                                    {/* A4 Printable container inside historical expands (for direct printing) */}
+                                    <div className="hidden">
+                                        <div 
+                                            id="print-order-sheet" 
+                                            className="bg-white text-slate-900 border border-slate-200 rounded-none p-12 text-left"
+                                        >
+                                            <div className="flex justify-between items-start border-b border-slate-100 pb-5 mb-8">
+                                                <div>
+                                                    <h4 className="font-serif font-black text-2xl tracking-widest uppercase text-slate-950 leading-none">KIROS</h4>
+                                                    <p className="text-[8px] text-indigo-600 font-sans font-bold uppercase tracking-[0.1em] mt-1 leading-none">Aromas para Casa</p>
+                                                    <p className="text-[9px] text-slate-400 font-sans mt-3 font-light">oi@usekiros.com.br</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-[9px] font-black uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600 tracking-wider">ORDEM DE PRODUÇÃO</span>
+                                                    <p className="text-[10px] text-slate-400 font-mono mt-2">Data: {new Date(order.date).toLocaleDateString('pt-BR')}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Products checklist with Checkboxes */}
+                                            <div className="space-y-4 mb-8">
+                                                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3">PRODUTOS A PRODUZIR</h5>
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {(order.recipe_name ? order.recipe_name.split(',') : []).map((prodName, idx) => (
+                                                        <div key={idx} className="flex items-center gap-3 py-1">
+                                                            {/* Checkbox box */}
+                                                            <div className="w-5 h-5 border-2 border-slate-400 rounded shrink-0 flex items-center justify-center bg-white"></div>
+                                                            <span className="font-sans font-bold text-sm uppercase text-slate-800 tracking-tight">{prodName.trim()}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Ingredients / Materials needed */}
+                                            <div className="space-y-4 font-sans">
+                                                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3">MATÉRIAS-PRIMAS NECESSÁRIAS (CONSOLIDADO)</h5>
+                                                <table className="w-full text-left text-xs mb-8">
+                                                    <thead className="bg-slate-100 text-[8px] text-slate-500 uppercase font-black tracking-widest border-b border-slate-100">
+                                                        <tr>
+                                                            <th className="px-4 py-2.5">Material</th>
+                                                            <th className="px-4 py-2.5 text-right w-32">Quantidade Necessária</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                                                        {order.items?.map((item, idx) => (
+                                                            <tr key={idx}>
+                                                                <td className="px-4 py-3.5 font-bold text-slate-900 uppercase tracking-tight">{item.name}</td>
+                                                                <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-950">
+                                                                    {item.requiredQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}
+                                                                    <span className="text-[9px] text-slate-400 ml-1.5 uppercase font-sans font-normal">{item.unit}</span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Footer Signature */}
+                                            <div className="border-t border-slate-100 pt-8 mt-16 flex justify-between items-center text-[10px] text-slate-400">
+                                                <div>
+                                                    <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Operador</p>
+                                                    <div className="w-32 border-b border-slate-300 mt-8"></div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Responsável / Qualidade</p>
+                                                    <div className="w-32 border-b border-slate-300 mt-8 ml-auto"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             )}
                         </div>
