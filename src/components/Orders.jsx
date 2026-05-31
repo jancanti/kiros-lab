@@ -411,7 +411,7 @@ export default function Orders() {
                                     </div>
 
                                     {/* A4 Printable container inside historical expands (for direct printing) */}
-                                    <div className="hidden">
+                                    <div className="hidden print:block">
                                         <div 
                                             id="print-order-sheet" 
                                             className="bg-white text-slate-900 border border-slate-200 rounded-none p-12 text-left"

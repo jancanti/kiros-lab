@@ -847,7 +847,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                         )}
 
                                         {/* A4 Printable container inside historical expands (for direct printing) */}
-                                        <div className="hidden">
+                                        <div className="hidden print:block">
                                             <div 
                                                 id="print-sheet" 
                                                 className="bg-white text-slate-900 border border-slate-200 rounded-none p-12 text-left"
