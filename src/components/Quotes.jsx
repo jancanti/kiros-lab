@@ -21,7 +21,8 @@ import {
     ChevronRight,
     Sparkles,
     Check,
-    AlertCircle
+    AlertCircle,
+    Pencil
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -56,6 +57,7 @@ export default function Quotes() {
     // History and Filter state
     const [historySearch, setHistorySearch] = useState('');
     const [expandedQuote, setExpandedQuote] = useState(null);
+    const [editingQuoteId, setEditingQuoteId] = useState(null);
 
     // Fetch initial data
     useEffect(() => {
@@ -178,7 +180,38 @@ export default function Quotes() {
         };
     }, [stagingItems, markup]);
 
-    // Save multi-product quote to Supabase
+    // Cancel editing a quote and clear staging
+    const handleCancelEdit = () => {
+        setEditingQuoteId(null);
+        setClientName('');
+        setStagingItems([]);
+        setNotes('');
+        setMarkup(2.0);
+    };
+
+    // Load an existing quote into the editor staging area
+    const handleEditQuoteClick = (quote, e) => {
+        e.stopPropagation();
+        setEditingQuoteId(quote.id);
+        setClientName(quote.client_name);
+        setExpiryDate(quote.expiry_date || '');
+        setNotes(quote.notes || '');
+        setMarkup(quote.markup || 2.0);
+        
+        // Map database items format to staging items format
+        const staging = (quote.items || []).map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitCost: item.unitCost
+        }));
+        setStagingItems(staging);
+        
+        // Scroll smoothly to form container
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Save or update multi-product quote in Supabase
     const handleSaveQuote = async (e) => {
         e.preventDefault();
         if (!clientName || stagingItems.length === 0) return;
@@ -201,18 +234,23 @@ export default function Quotes() {
                 expiry_date: expiryDate || null
             };
 
-            await quotesApi.add(quoteData);
+            if (editingQuoteId) {
+                await quotesApi.update(editingQuoteId, quoteData);
+            } else {
+                await quotesApi.add(quoteData);
+            }
             
             // Reset inputs
             setClientName('');
             setStagingItems([]);
             setNotes('');
             setMarkup(2.0); // Reset to 2.0x default
+            setEditingQuoteId(null);
             
             // Reload history
             const updatedQuotes = await quotesApi.getAll();
             setQuotes(updatedQuotes || []);
-            alert('Orçamento salvo com sucesso!');
+            alert(editingQuoteId ? 'Orçamento atualizado com sucesso!' : 'Orçamento salvo com sucesso!');
         } catch (error) {
             console.error('Falha ao salvar orçamento:', error);
             alert('Erro ao salvar orçamento no Supabase.');
@@ -336,6 +374,13 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                         <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest mb-5 flex items-center gap-2 relative z-10">
                             <FileText size={16} className="text-brand" /> Dados Principais da Proposta
                         </h3>
+
+                        {editingQuoteId && (
+                            <div className="mb-4 bg-brand/10 border border-brand/20 text-brand rounded-xl px-4 py-3 text-xs font-bold flex items-center gap-2 relative z-10 animate-in fade-in slide-in-from-top-2">
+                                <Sparkles size={14} className="animate-pulse shrink-0" />
+                                <span>Você está editando o orçamento de <strong>{clientName}</strong>. As alterações serão salvas ao atualizar.</span>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                             <div className="space-y-1.5 col-span-1 sm:col-span-2">
@@ -547,13 +592,22 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                             </div>
 
                             {/* Finalize proposal save trigger */}
-                            <div className="flex justify-end pt-2">
+                            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+                                {editingQuoteId && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelEdit}
+                                        className="w-full sm:w-auto bg-muted hover:bg-muted/80 text-muted-foreground font-black px-6 py-3.5 rounded-xl transition-all active:scale-95 uppercase text-xs tracking-wider border border-border"
+                                    >
+                                        Cancelar Edição
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleSaveQuote}
                                     disabled={!clientName || stagingItems.length === 0 || saving}
                                     className="w-full sm:w-auto bg-brand hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-black px-8 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-brand/20 uppercase text-xs tracking-wider"
                                 >
-                                    <Save size={16} /> Salvar Orçamento Completo
+                                    <Save size={16} /> {editingQuoteId ? 'Atualizar Orçamento' : 'Salvar Orçamento Completo'}
                                 </button>
                             </div>
                         </div>
@@ -766,6 +820,18 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                 </div>
                                 
                                 <div className="flex items-center justify-end gap-2 self-end md:self-center mt-4 md:mt-0">
+                                    <button
+                                        onClick={(e) => handleEditQuoteClick(quote, e)}
+                                        className={cn(
+                                            "p-2.5 rounded-lg transition-all",
+                                            editingQuoteId === quote.id
+                                                ? "text-brand bg-brand/10 font-bold"
+                                                : "text-muted-foreground hover:text-brand hover:bg-brand/10"
+                                        )}
+                                        title="Editar Orçamento"
+                                    >
+                                        <Pencil size={18} />
+                                    </button>
                                     <button
                                         onClick={(e) => handleCopyWhatsApp(quote, e)}
                                         className="p-2.5 text-muted-foreground hover:text-brand hover:bg-brand/10 rounded-lg transition-all"

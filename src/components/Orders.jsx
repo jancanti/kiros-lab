@@ -428,26 +428,13 @@ export default function Orders() {
                                                 </div>
                                             </div>
 
-                                            {/* Products checklist with Checkboxes */}
-                                            <div className="space-y-4 mb-8">
-                                                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3">PRODUTOS A PRODUZIR</h5>
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {(order.recipe_name ? order.recipe_name.split(',') : []).map((prodName, idx) => (
-                                                        <div key={idx} className="flex items-center gap-3 py-1">
-                                                            {/* Checkbox box */}
-                                                            <div className="w-5 h-5 border-2 border-slate-400 rounded shrink-0 flex items-center justify-center bg-white"></div>
-                                                            <span className="font-sans font-bold text-sm uppercase text-slate-800 tracking-tight">{prodName.trim()}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-
                                             {/* Ingredients / Materials needed */}
                                             <div className="space-y-4 font-sans">
                                                 <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3">MATÉRIAS-PRIMAS NECESSÁRIAS (CONSOLIDADO)</h5>
                                                 <table className="w-full text-left text-xs mb-8">
                                                     <thead className="bg-slate-100 text-[8px] text-slate-500 uppercase font-black tracking-widest border-b border-slate-100">
                                                         <tr>
+                                                            <th className="px-4 py-2.5 w-12 text-center">OK</th>
                                                             <th className="px-4 py-2.5">Material</th>
                                                             <th className="px-4 py-2.5 text-right w-32">Quantidade Necessária</th>
                                                         </tr>
@@ -455,6 +442,10 @@ export default function Orders() {
                                                     <tbody className="divide-y divide-slate-100 text-slate-700">
                                                         {order.items?.map((item, idx) => (
                                                             <tr key={idx}>
+                                                                <td className="px-4 py-3.5 text-center align-middle w-12">
+                                                                    {/* Checkbox box */}
+                                                                    <div className="w-4 h-4 border-2 border-slate-400 rounded mx-auto bg-white"></div>
+                                                                </td>
                                                                 <td className="px-4 py-3.5 font-bold text-slate-900 uppercase tracking-tight">{item.name}</td>
                                                                 <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-950">
                                                                     {item.requiredQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}

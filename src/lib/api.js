@@ -151,6 +151,17 @@ export const quotesApi = {
             .eq('id', id);
         if (error) throw error;
         return true;
+    },
+
+    async update(id, updates) {
+        const { data, error } = await supabase
+            .from('quotes')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
     }
 };
 
