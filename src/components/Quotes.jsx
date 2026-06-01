@@ -112,16 +112,18 @@ export default function Quotes() {
         }
     }, [selectedProduct, allIngredients]);
 
-    // Add selected product to staging list
+    // Add selected or custom product to staging list
     const handleAddItemToStaging = (e) => {
         e.preventDefault();
-        if (!selectedProductId || !quantityInput) return;
+        if (!productSearch || !quantityInput) return;
 
         const qty = Number(quantityInput) || 10;
         const unitCost = Number(unitCostInput) || 0;
+        const prodId = selectedProductId || `custom-${Date.now()}`;
+        const prodName = selectedProductId ? selectedProduct.name : productSearch;
 
         setStagingItems(prev => {
-            const existingIndex = prev.findIndex(item => item.productId === selectedProductId);
+            const existingIndex = prev.findIndex(item => item.productId === prodId);
             if (existingIndex > -1) {
                 // Update quantity if already in staging
                 const updated = [...prev];
@@ -132,8 +134,8 @@ export default function Quotes() {
                 return [
                     ...prev,
                     {
-                        productId: selectedProductId,
-                        productName: selectedProduct.name,
+                        productId: prodId,
+                        productName: prodName,
                         quantity: qty,
                         unitCost: unitCost
                     }
@@ -485,7 +487,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                         placeholder="0,00"
                                         value={unitCostInput}
                                         onChange={e => setUnitCostInput(e.target.value)}
-                                        disabled={!selectedProductId}
+                                        disabled={!productSearch}
                                         className="w-full bg-background border border-border disabled:opacity-50 disabled:cursor-not-allowed rounded-xl px-4 py-2.5 pl-9 text-sm font-mono font-bold focus:outline-none focus:border-brand transition-all"
                                     />
                                     <span className="absolute left-3.5 top-3.5 text-muted-foreground text-xs font-bold font-sans">R$</span>
@@ -507,7 +509,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                             {/* Add Trigger */}
                             <button
                                 type="submit"
-                                disabled={!selectedProductId}
+                                disabled={!productSearch}
                                 className="md:col-span-2 bg-brand hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed text-slate-950 font-black px-4 py-3 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-md shadow-brand/10 uppercase text-[10px] tracking-wider h-11"
                             >
                                 <Plus size={14} /> Inserir
@@ -672,7 +674,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 text-slate-700">
-                                                {stagingCalculations.items.map((item, idx) => (
+                                                {[...stagingCalculations.items].sort((a, b) => a.productName.localeCompare(b.productName)).map((item, idx) => (
                                                     <tr key={item.productId || idx}>
                                                         <td className="px-4 py-3.5 font-bold text-slate-900 uppercase tracking-tight">{item.productName}</td>
                                                         <td className="px-4 py-3.5 text-center font-bold font-mono">{item.quantity}</td>
@@ -955,7 +957,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                                                        {quote.items?.map((item, idx) => (
+                                                        {[...(quote.items || [])].sort((a, b) => a.productName.localeCompare(b.productName)).map((item, idx) => (
                                                             <tr key={item.productId || idx}>
                                                                 <td className="px-4 py-4 font-bold text-slate-900 uppercase tracking-tight">{item.productName}</td>
                                                                 <td className="px-4 py-4 text-center font-bold font-mono">{item.quantity}</td>

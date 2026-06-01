@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { productsApi, ordersApi } from '../lib/api';
+import { productsApi, ordersApi, quotesApi } from '../lib/api';
 import { Calculator, ClipboardList, Plus, Trash2, Loader2, Search, X, Save, History, ChevronRight, ChevronDown, Calendar, Droplets, Printer } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Orders() {
     const [products, setProducts] = useState([]);
     const [pastOrders, setPastOrders] = useState([]);
+    const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -14,6 +15,9 @@ export default function Orders() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [selectedRecipeId, setSelectedRecipeId] = useState('');
     const [quantity, setQuantity] = useState('');
+
+    // Selected quote state
+    const [selectedQuoteId, setSelectedQuoteId] = useState('');
 
     // List of recipes to produce (staging)
     const [productionList, setProductionList] = useState([]);
@@ -24,6 +28,10 @@ export default function Orders() {
     // View state
     const [expandedOrder, setExpandedOrder] = useState(null);
 
+    // Multiselect & consolidated printing state
+    const [selectedOrders, setSelectedOrders] = useState([]);
+    const [activePrintJob, setActivePrintJob] = useState(null);
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -31,16 +39,78 @@ export default function Orders() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [recs, ords] = await Promise.all([
+            const [recs, ords, qts] = await Promise.all([
                 productsApi.getAll(),
-                ordersApi.getAll()
+                ordersApi.getAll(),
+                quotesApi.getAll()
             ]);
             setProducts(recs);
             setPastOrders(ords);
+            setQuotes(qts || []);
         } catch (error) {
             console.error('Failed to fetch data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Import all products (including custom ones) from a past Quote into the staging productionList
+    const addQuoteToProductionList = (quoteId) => {
+        if (!quoteId) return;
+        const quote = quotes.find(q => q.id === quoteId);
+        if (!quote) return;
+
+        let addedCount = 0;
+        let customCount = 0;
+        const newStagingItems = [];
+
+        quote.items?.forEach(quoteItem => {
+            if (!quoteItem) return;
+
+            const itemId = quoteItem.productId || quoteItem.recipeId || '';
+            const itemName = quoteItem.productName || quoteItem.recipeName || quoteItem.name || '';
+            const itemQty = Number(quoteItem.quantity) || Number(quoteItem.qty) || 1;
+
+            if (!itemName) return;
+
+            // Find standard product recipe by ID or exact case-insensitive Name
+            const product = products.find(p => 
+                (itemId && p.id === itemId) || 
+                (p.name && itemName && p.name.toLowerCase() === itemName.toLowerCase())
+            );
+
+            if (product) {
+                newStagingItems.push({
+                    recipeId: product.id,
+                    recipeName: product.name,
+                    targetQuantity: itemQty,
+                    recipeYield: product.yield || 1,
+                    ingredients: product.ingredients || []
+                });
+                addedCount++;
+            } else {
+                // Add custom item with empty ingredients list so it doesn't crash calculations
+                newStagingItems.push({
+                    recipeId: itemId || `custom-${Date.now()}-${Math.random()}`,
+                    recipeName: itemName,
+                    targetQuantity: itemQty,
+                    recipeYield: 1,
+                    ingredients: []
+                });
+                customCount++;
+            }
+        });
+
+        if (newStagingItems.length > 0) {
+            setProductionList(prev => [...prev, ...newStagingItems]);
+            setRequirements(null); // Reset calculated requirements
+            setSelectedQuoteId('');
+        }
+
+        if (customCount > 0) {
+            alert(`Importação concluída: ${addedCount} produtos padrão e ${customCount} itens personalizados do orçamento de "${quote.client_name}" foram carregados com sucesso!`);
+        } else {
+            alert(`Todos os ${addedCount} produtos do orçamento de "${quote.client_name}" foram carregados com sucesso para o planejamento de produção!`);
         }
     };
 
@@ -76,23 +146,36 @@ export default function Orders() {
         if (productionList.length === 0) return;
 
         const aggregatedIngredients = {};
+        const customProducts = [];
 
         productionList.forEach(item => {
-            const ratio = item.targetQuantity / item.recipeYield;
-
-            item.ingredients.forEach(ing => {
-                if (!aggregatedIngredients[ing.ingredientId]) {
-                    aggregatedIngredients[ing.ingredientId] = {
-                        name: ing.name,
-                        unit: ing.unit,
-                        requiredQty: 0
-                    };
-                }
-                aggregatedIngredients[ing.ingredientId].requiredQty += (ing.quantity * ratio);
-            });
+            if (item.ingredients && Array.isArray(item.ingredients) && item.ingredients.length > 0) {
+                const ratio = item.targetQuantity / item.recipeYield;
+                item.ingredients.forEach(ing => {
+                    if (!aggregatedIngredients[ing.ingredientId]) {
+                        aggregatedIngredients[ing.ingredientId] = {
+                            name: ing.name,
+                            unit: ing.unit,
+                            requiredQty: 0
+                        };
+                    }
+                    aggregatedIngredients[ing.ingredientId].requiredQty += (ing.quantity * ratio);
+                });
+            } else {
+                // Custom product with no standard raw materials recipe
+                customProducts.push({
+                    name: item.recipeName,
+                    unit: 'un',
+                    requiredQty: item.targetQuantity,
+                    isCustomProduct: true
+                });
+            }
         });
 
-        setRequirements(Object.values(aggregatedIngredients).sort((a, b) => a.name.localeCompare(b.name)));
+        const ingList = Object.values(aggregatedIngredients).sort((a, b) => a.name.localeCompare(b.name));
+        const customList = customProducts.sort((a, b) => a.name.localeCompare(b.name));
+
+        setRequirements([...ingList, ...customList]);
     };
 
     const saveOrder = async () => {
@@ -132,8 +215,67 @@ export default function Orders() {
         }
     };
 
-    const handlePrint = (orderId) => {
-        setExpandedOrder(orderId);
+    const toggleOrderSelection = (orderId) => {
+        setSelectedOrders(prev => 
+            prev.includes(orderId) 
+                ? prev.filter(id => id !== orderId) 
+                : [...prev, orderId]
+        );
+    };
+
+    const consolidateSelectedOrders = () => {
+        if (selectedOrders.length === 0) return;
+        const selectedList = pastOrders.filter(o => selectedOrders.includes(o.id));
+        
+        const consolidatedIngredients = {};
+        const consolidatedCustomProducts = {};
+
+        selectedList.forEach(order => {
+            order.items?.forEach(item => {
+                if (item.isCustomProduct) {
+                    if (!consolidatedCustomProducts[item.name]) {
+                        consolidatedCustomProducts[item.name] = {
+                            name: item.name,
+                            unit: item.unit || 'un',
+                            requiredQty: 0,
+                            isCustomProduct: true
+                        };
+                    }
+                    consolidatedCustomProducts[item.name].requiredQty += Number(item.requiredQty) || 0;
+                } else {
+                    if (!consolidatedIngredients[item.name]) {
+                        consolidatedIngredients[item.name] = {
+                            name: item.name,
+                            unit: item.unit || 'g',
+                            requiredQty: 0
+                        };
+                    }
+                    consolidatedIngredients[item.name].requiredQty += Number(item.requiredQty) || 0;
+                }
+            });
+        });
+
+        const sortedIngList = Object.values(consolidatedIngredients).sort((a, b) => a.name.localeCompare(b.name));
+        const sortedCustomList = Object.values(consolidatedCustomProducts).sort((a, b) => a.name.localeCompare(b.name));
+
+        const consolidatedItems = [...sortedIngList, ...sortedCustomList];
+
+        setActivePrintJob({
+            type: 'consolidated',
+            orders: selectedList,
+            items: consolidatedItems
+        });
+
+        setTimeout(() => {
+            window.print();
+        }, 150);
+    };
+
+    const handlePrintSingle = (order) => {
+        setActivePrintJob({
+            type: 'single',
+            order
+        });
         setTimeout(() => {
             window.print();
         }, 150);
@@ -255,6 +397,44 @@ export default function Orders() {
                         <Plus size={18} /> ADICIONAR
                     </button>
                 </div>
+
+                {quotes.length > 0 && (
+                    <>
+                        <div className="border-t border-border/40 my-6"></div>
+
+                        {/* Add from Quote Section */}
+                        <div className="space-y-4 relative z-10">
+                            <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Importar Produtos de um Orçamento Existente</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                <div className="md:col-span-9 space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Orçamento Salvo</label>
+                                    <select
+                                        value={selectedQuoteId}
+                                        onChange={e => setSelectedQuoteId(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:border-brand transition-all"
+                                    >
+                                        <option value="">-- Selecionar Orçamento --</option>
+                                        {quotes.map(q => {
+                                            const dateStr = new Date(q.created_at).toLocaleDateString('pt-BR');
+                                            return (
+                                                <option key={q.id} value={q.id}>
+                                                    {q.client_name} ({q.items?.length || 0} produtos) - {dateStr} - R$ {q.total_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={() => addQuoteToProductionList(selectedQuoteId)}
+                                    disabled={!selectedQuoteId}
+                                    className="md:col-span-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black px-6 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 uppercase h-[48px] text-xs tracking-wider"
+                                >
+                                    <ClipboardList size={18} /> Importar Itens
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Current Order (Staging) */}
@@ -321,7 +501,14 @@ export default function Orders() {
                                     <tbody className="divide-y divide-border">
                                         {requirements.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-accent/30">
-                                                <td className="px-5 py-4 text-sm font-bold uppercase tracking-tight">{item.name}</td>
+                                                <td className="px-5 py-4 text-sm font-bold uppercase tracking-tight flex items-center gap-2">
+                                                    <span>{item.name}</span>
+                                                    {item.isCustomProduct && (
+                                                        <span className="text-[9px] bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">
+                                                            Item Personalizado
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td className="px-5 py-4 text-right font-mono text-brand font-black text-lg">
                                                     {item.requiredQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}
                                                     <span className="text-[10px] text-muted-foreground font-bold ml-1.5 uppercase">{item.unit}</span>
@@ -351,8 +538,17 @@ export default function Orders() {
                                 onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
                             >
                                 <div className="flex items-start gap-4 flex-1">
-                                    <div className="mt-1 shrink-0 text-muted-foreground">
-                                        {expandedOrder === order.id ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                                    <div className="mt-1.5 shrink-0 flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedOrders.includes(order.id)}
+                                            onChange={() => toggleOrderSelection(order.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="w-4.5 h-4.5 rounded-md border-border text-indigo-600 focus:ring-indigo-500 bg-background cursor-pointer accent-indigo-600"
+                                        />
+                                        <div className="text-muted-foreground">
+                                            {expandedOrder === order.id ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                                        </div>
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-3 mb-1">
@@ -370,7 +566,7 @@ export default function Orders() {
                                 </div>
                                 <div className="flex items-center gap-2 self-end md:self-center mt-4 md:mt-0">
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); handlePrint(order.id); }}
+                                        onClick={(e) => { e.stopPropagation(); handlePrintSingle(order); }}
                                         className="p-2.5 text-muted-foreground hover:text-brand hover:bg-brand/10 rounded-lg transition-all"
                                         title="Imprimir Ordem de Produção"
                                     >
@@ -409,68 +605,6 @@ export default function Orders() {
                                             </tbody>
                                         </table>
                                     </div>
-
-                                    {/* A4 Printable container inside historical expands (for direct printing) */}
-                                    <div className="hidden print:block">
-                                        <div 
-                                            id="print-order-sheet" 
-                                            className="bg-white text-slate-900 border border-slate-200 rounded-none p-12 text-left"
-                                        >
-                                            <div className="flex justify-between items-start border-b border-slate-100 pb-5 mb-8">
-                                                <div>
-                                                    <h4 className="font-serif font-black text-2xl tracking-widest uppercase text-slate-950 leading-none">KIROS</h4>
-                                                    <p className="text-[8px] text-indigo-600 font-sans font-bold uppercase tracking-[0.1em] mt-1 leading-none">Aromas para Casa</p>
-                                                    <p className="text-[9px] text-slate-400 font-sans mt-3 font-light">oi@usekiros.com.br</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className="text-[9px] font-black uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600 tracking-wider">ORDEM DE PRODUÇÃO</span>
-                                                    <p className="text-[10px] text-slate-400 font-mono mt-2">Data: {new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Ingredients / Materials needed */}
-                                            <div className="space-y-4 font-sans">
-                                                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3">MATÉRIAS-PRIMAS NECESSÁRIAS (CONSOLIDADO)</h5>
-                                                <table className="w-full text-left text-xs mb-8">
-                                                    <thead className="bg-slate-100 text-[8px] text-slate-500 uppercase font-black tracking-widest border-b border-slate-100">
-                                                        <tr>
-                                                            <th className="px-4 py-2.5 w-12 text-center">OK</th>
-                                                            <th className="px-4 py-2.5">Material</th>
-                                                            <th className="px-4 py-2.5 text-right w-32">Quantidade Necessária</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                                                        {order.items?.map((item, idx) => (
-                                                            <tr key={idx}>
-                                                                <td className="px-4 py-3.5 text-center align-middle w-12">
-                                                                    {/* Checkbox box */}
-                                                                    <div className="w-4 h-4 border-2 border-slate-400 rounded mx-auto bg-white"></div>
-                                                                </td>
-                                                                <td className="px-4 py-3.5 font-bold text-slate-900 uppercase tracking-tight">{item.name}</td>
-                                                                <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-950">
-                                                                    {item.requiredQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}
-                                                                    <span className="text-[9px] text-slate-400 ml-1.5 uppercase font-sans font-normal">{item.unit}</span>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-
-                                            {/* Footer Signature */}
-                                            <div className="border-t border-slate-100 pt-8 mt-16 flex justify-between items-center text-[10px] text-slate-400">
-                                                <div>
-                                                    <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Operador</p>
-                                                    <div className="w-32 border-b border-slate-300 mt-8"></div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Responsável / Qualidade</p>
-                                                    <div className="w-32 border-b border-slate-300 mt-8 ml-auto"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                 </div>
                             )}
                         </div>
@@ -484,6 +618,127 @@ export default function Orders() {
                     )}
                 </div>
             </div>
+
+            {/* Floating Batch Operations Bar */}
+            {selectedOrders.length > 0 && (
+                <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto bg-slate-900 dark:bg-indigo-950 text-white px-6 py-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-indigo-500/30 flex flex-col sm:flex-row items-center gap-4 z-40 animate-in slide-in-from-bottom-6 duration-300">
+                    <div className="text-sm font-bold flex items-center gap-2">
+                        <span className="bg-indigo-500 text-slate-950 w-6 h-6 rounded-full flex items-center justify-center font-black text-xs">
+                            {selectedOrders.length}
+                        </span>
+                        <span>{selectedOrders.length === 1 ? 'Ordem selecionada' : 'Ordens selecionadas'}</span>
+                    </div>
+                    <div className="flex gap-2.5 w-full sm:w-auto">
+                        <button
+                            onClick={consolidateSelectedOrders}
+                            className="flex-1 sm:flex-initial bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-black text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-indigo-500/20"
+                        >
+                            <Printer size={14} /> Consolidar e Imprimir
+                        </button>
+                        <button
+                            onClick={() => setSelectedOrders([])}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                        >
+                            Limpar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* A4 Dynamic Printable Sheet (Hidden on screen, visible on print) */}
+            {activePrintJob && (
+                <div className="hidden print:block">
+                    <div 
+                        id="print-order-sheet" 
+                        className="bg-white text-slate-900 border border-slate-200 rounded-none p-12 text-left"
+                    >
+                        {/* Timbrado */}
+                        <div className="flex justify-between items-start border-b border-slate-100 pb-5 mb-8">
+                            <div>
+                                <h4 className="font-serif font-black text-2xl tracking-widest uppercase text-slate-950 leading-none">KIROS</h4>
+                                <p className="text-[8px] text-indigo-600 font-sans font-bold uppercase tracking-[0.1em] mt-1 leading-none">Aromas para Casa</p>
+                                <p className="text-[9px] text-slate-400 font-sans mt-3 font-light">oi@usekiros.com.br</p>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[9px] font-black uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600 tracking-wider">
+                                    {activePrintJob.type === 'consolidated' ? 'CONSOLIDAÇÃO DE ORDENS' : 'ORDEM DE PRODUÇÃO'}
+                                </span>
+                                <p className="text-[10px] text-slate-400 font-mono mt-2">
+                                    Data: {new Date().toLocaleDateString('pt-BR')}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* List of orders included in consolidation */}
+                        {activePrintJob.type === 'consolidated' && (
+                            <div className="mb-6 font-sans border border-slate-100 bg-slate-50/50 p-4 rounded-xl">
+                                <h5 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ORDENS CONSOLIDADAS ({activePrintJob.orders.length})</h5>
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                                    {activePrintJob.orders.map((o, idx) => {
+                                        const dateStr = new Date(o.date).toLocaleDateString('pt-BR');
+                                        return (
+                                            <div key={idx} className="text-[10px] text-slate-600 flex items-start gap-1">
+                                                <span className="font-mono text-slate-400 font-semibold">#{(idx+1).toString().padStart(2, '0')}</span>
+                                                <span className="font-bold">{dateStr}</span>
+                                                <span className="truncate text-slate-500">— {o.recipe_name}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Ingredients / Materials needed Checklist */}
+                        <div className="space-y-4 font-sans">
+                            <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-3">
+                                {activePrintJob.type === 'consolidated' ? 'MATÉRIAS-PRIMAS CONSOLIDADAS' : 'MATÉRIAS-PRIMAS NECESSÁRIAS (CONSOLIDADO)'}
+                            </h5>
+                            <table className="w-full text-left text-xs mb-8">
+                                <thead className="bg-slate-100 text-[8px] text-slate-500 uppercase font-black tracking-widest border-b border-slate-100">
+                                    <tr>
+                                        <th className="px-4 py-2 w-12 text-center">OK</th>
+                                        <th className="px-4 py-2">Material / Produto</th>
+                                        <th className="px-4 py-2 text-right w-32">Quantidade Necessária</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-slate-700">
+                                    {(activePrintJob.type === 'consolidated' ? activePrintJob.items : activePrintJob.order.items)?.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td className="px-4 py-2.5 text-center align-middle w-12">
+                                                <div className="w-4 h-4 border border-slate-400 rounded mx-auto bg-white"></div>
+                                            </td>
+                                            <td className="px-4 py-2.5 font-bold text-slate-900 uppercase tracking-tight text-[11px]">
+                                                <span>{item.name}</span>
+                                                {item.isCustomProduct && (
+                                                    <span className="ml-2 text-[7px] bg-slate-100 text-slate-500 border border-slate-200 px-1 py-0.5 rounded font-sans font-black tracking-wider">
+                                                        ITEM PERSONALIZADO
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-950 text-[11px]">
+                                                {item.requiredQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}
+                                                <span className="text-[9px] text-slate-400 ml-1.5 uppercase font-sans font-normal">{item.unit}</span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Footer Signature */}
+                        <div className="border-t border-slate-100 pt-8 mt-12 flex justify-between items-center text-[10px] text-slate-400">
+                            <div>
+                                <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Operador</p>
+                                <div className="w-32 border-b border-slate-300 mt-6"></div>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Responsável / Qualidade</p>
+                                <div className="w-32 border-b border-slate-300 mt-6 ml-auto"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
