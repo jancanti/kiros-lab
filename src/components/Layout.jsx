@@ -14,7 +14,6 @@ import {
     FileText
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
 import { useEffect } from 'react';
 
 const menuItems = [
@@ -22,8 +21,8 @@ const menuItems = [
     { icon: Droplets, label: 'Calculadora', path: '/calc' },
     { icon: Beaker, label: 'Ingredientes', path: '/ingredientes' },
     { icon: BookOpen, label: 'Produtos', path: '/produtos' },
-    { icon: ClipboardList, label: 'Produção', path: '/prod' },
     { icon: FileText, label: 'Orçamentos', path: '/orcamentos' },
+    { icon: ClipboardList, label: 'Produção', path: '/prod' },
 ];
 
 export default function Layout() {

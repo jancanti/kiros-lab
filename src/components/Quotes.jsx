@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     ingredientsApi, 
     productsApi, 
@@ -24,7 +24,7 @@ import {
     AlertCircle,
     Pencil
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, normalizeText } from '../lib/utils';
 
 export default function Quotes() {
     const [allIngredients, setAllIngredients] = useState([]);
@@ -88,19 +88,14 @@ export default function Quotes() {
     }, [products, selectedProductId]);
 
     // Calculate cost of any product based on current ingredient costs
-    const getProductUnitCost = (product) => {
+    const getProductUnitCost = useCallback((product) => {
         if (!product || !product.ingredients || !allIngredients.length) return 0;
         return product.ingredients.reduce((acc, item) => {
             const ing = allIngredients.find(i => i.id === item.ingredientId);
             const cost = ing ? (ing.cost || 0) : 0;
             return acc + (item.quantity * cost);
         }, 0);
-    };
-
-    // Calculate current item unit cost
-    const currentUnitCost = useMemo(() => {
-        return getProductUnitCost(selectedProduct);
-    }, [selectedProduct, allIngredients]);
+    }, [allIngredients]);
 
     // Set custom unit cost input when product changes
     useEffect(() => {
@@ -110,7 +105,7 @@ export default function Quotes() {
         } else {
             setUnitCostInput('');
         }
-    }, [selectedProduct, allIngredients]);
+    }, [selectedProduct, getProductUnitCost]);
 
     // Add selected or custom product to staging list
     const handleAddItemToStaging = (e) => {
@@ -125,9 +120,10 @@ export default function Quotes() {
         setStagingItems(prev => {
             const existingIndex = prev.findIndex(item => item.productId === prodId);
             if (existingIndex > -1) {
-                // Update quantity if already in staging
+                // Update quantity and unit cost if already in staging
                 const updated = [...prev];
                 updated[existingIndex].quantity += qty;
+                updated[existingIndex].unitCost = unitCost;
                 return updated;
             } else {
                 // Add new item
@@ -159,6 +155,13 @@ export default function Quotes() {
         ));
     };
 
+    // Update item unit cost directly in the staging list
+    const handleUpdateStagingUnitCost = (productId, newCost) => {
+        setStagingItems(prev => prev.map(item => 
+            item.productId === productId ? { ...item, unitCost: newCost } : item
+        ));
+    };
+
     // Remove item from staging list
     const handleRemoveFromStaging = (productId) => {
         setStagingItems(prev => prev.filter(item => item.productId !== productId));
@@ -167,7 +170,7 @@ export default function Quotes() {
     // Compute preview price totals for staging list
     const stagingCalculations = useMemo(() => {
         const items = stagingItems.map(item => {
-            const unitPrice = item.unitCost * markup;
+            const unitPrice = (Number(item.unitCost) || 0) * markup;
             const totalPrice = item.quantity * unitPrice;
             return {
                 ...item,
@@ -226,7 +229,7 @@ export default function Quotes() {
                     productId: item.productId,
                     productName: item.productName,
                     quantity: item.quantity,
-                    unitCost: item.unitCost,
+                    unitCost: Number(item.unitCost) || 0,
                     unitPrice: item.unitPrice,
                     totalPrice: item.totalPrice
                 })),
@@ -322,11 +325,11 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
         }, 150);
     };
 
-    // Filter past quotes
     const filteredQuotes = useMemo(() => {
+        const query = normalizeText(historySearch);
         return quotes.filter(q => 
-            q.client_name.toLowerCase().includes(historySearch.toLowerCase()) ||
-            q.items.some(item => item.productName.toLowerCase().includes(historySearch.toLowerCase()))
+            normalizeText(q.client_name).includes(query) ||
+            q.items.some(item => normalizeText(item.productName).includes(query))
         );
     }, [quotes, historySearch]);
 
@@ -456,7 +459,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                 {isDropdownOpen && (
                                     <div className="absolute z-30 w-full mt-1 bg-surface border border-border rounded-xl shadow-2xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 text-xs">
                                         {products
-                                            ?.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                                            ?.filter(p => normalizeText(p.name).includes(normalizeText(productSearch)))
                                             .map(p => (
                                                 <div
                                                     key={p.id}
@@ -549,8 +552,19 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                                         className="w-16 bg-background border border-border rounded px-2 py-1 text-center font-mono font-bold text-xs focus:outline-none focus:border-brand"
                                                     />
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-mono text-muted-foreground">
-                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitCost)}
+                                                <td className="px-4 py-3 text-right">
+                                                    {/* IN-LINE UNIT COST EDITOR */}
+                                                    <div className="relative inline-flex items-center">
+                                                        <span className="absolute left-2.5 text-muted-foreground font-sans font-bold text-[10px]">R$</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            value={item.unitCost}
+                                                            onChange={e => handleUpdateStagingUnitCost(item.productId, e.target.value)}
+                                                            className="w-24 bg-background border border-border rounded pl-7 pr-2 py-1 text-right font-mono font-bold text-xs focus:outline-none focus:border-brand"
+                                                        />
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-mono font-bold text-foreground">
                                                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.unitPrice)}
@@ -703,15 +717,7 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                     )}
                                 </div>
 
-                                {/* Paper Footer */}
-                                <div className="border-t border-slate-100 pt-4 mt-8 flex justify-between items-center text-[9px] text-slate-400">
-                                    <div className="flex items-center gap-1">
-                                        <Sparkles size={11} className="text-indigo-600 animate-pulse shrink-0" />
-                                    </div>
-                                    <div className="w-20 border-t border-slate-300 text-center pt-1 font-bold text-[8px] uppercase tracking-wider text-slate-500">
-                                        Aprovação
-                                    </div>
-                                </div>
+
 
                             </div>
 
@@ -983,11 +989,6 @@ Agradecemos a oportunidade de criar aromas únicos com você! Para aprovar este 
                                                     </div>
                                                 )}
 
-                                                <div className="border-t border-slate-100 pt-5 mt-16 flex justify-between items-center text-[10px] text-slate-400">
-                                                    <div className="w-24 border-t border-slate-300 text-center pt-1 font-bold text-[9px] uppercase tracking-wider text-slate-500 ml-auto">
-                                                        Aprovação
-                                                    </div>
-                                                </div>
                                             </div>
                                         </div>
 

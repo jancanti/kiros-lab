@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ingredientsApi, productsApi, ordersApi } from '../lib/api';
+import { ingredientsApi, productsApi, ordersApi, quotesApi } from '../lib/api';
 import { migrateLegacyBackup } from '../lib/migration';
 import { supabase } from '../lib/supabase';
 import { 
@@ -16,11 +16,12 @@ import {
   Sparkles, 
   Coins, 
   Award,
-  ArrowRight
+  ArrowRight,
+  FileText
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ products: 0, ingredients: 0, orders: 0 });
+  const [stats, setStats] = useState({ products: 0, ingredients: 0, orders: 0, quotes: 0 });
   const [avgCost, setAvgCost] = useState(0);
   const [topIngredient, setTopIngredient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,16 +64,18 @@ export default function Dashboard() {
   useEffect(() => {
     async function initDashboard() {
       try {
-        const [recs, ings, ords] = await Promise.all([
+        const [recs, ings, ords, qts] = await Promise.all([
           productsApi.getAll(),
           ingredientsApi.getAll(),
-          ordersApi.getAll()
+          ordersApi.getAll(),
+          quotesApi.getAll()
         ]);
         
         setStats({
           products: recs.length,
           ingredients: ings.length,
-          orders: ords.length
+          orders: ords.length,
+          quotes: qts?.length || 0
         });
 
         // Compute premium metrics
@@ -100,16 +103,18 @@ export default function Dashboard() {
       setShowMigration(false);
       
       // Refresh stats
-      const [recs, ings, ords] = await Promise.all([
+      const [recs, ings, ords, qts] = await Promise.all([
         productsApi.getAll(),
         ingredientsApi.getAll(),
-        ordersApi.getAll()
+        ordersApi.getAll(),
+        quotesApi.getAll()
       ]);
       
       setStats({
         products: recs.length,
         ingredients: ings.length,
-        orders: ords.length
+        orders: ords.length,
+        quotes: qts?.length || 0
       });
 
       await calculateMetrics(recs, ings);
@@ -167,7 +172,7 @@ export default function Dashboard() {
         <div className="lg:col-span-8 space-y-6">
           <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Módulos do Laboratório</h3>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             
             {/* Calculator */}
             <Link to="/calc" className="p-6 rounded-2xl bg-surface border border-border relative overflow-hidden group hover:border-brand/45 hover:shadow-xl transition-all hover:-translate-y-0.5 flex flex-col justify-between min-h-[170px]">
@@ -213,6 +218,22 @@ export default function Dashboard() {
               <div className="flex items-baseline justify-between mt-4">
                 <span className="text-3xl font-black font-mono leading-none">{loading ? '...' : stats.ingredients}</span>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Materiais</span>
+              </div>
+            </Link>
+
+            {/* Quotes */}
+            <Link to="/orcamentos" className="p-6 rounded-2xl bg-surface border border-border relative overflow-hidden group hover:border-brand/45 hover:shadow-xl transition-all hover:-translate-y-0.5 flex flex-col justify-between min-h-[170px]">
+              <div className="absolute right-[-10px] top-[-10px] text-foreground/5 opacity-[0.03] group-hover:opacity-[0.08] transition-all group-hover:scale-110">
+                <FileText size={140} />
+              </div>
+              <div>
+                <span className="bg-brand/10 text-brand text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-brand/20">Comercial</span>
+                <h4 className="text-xl font-serif font-bold mt-3 text-foreground group-hover:text-brand transition-colors">Orçamentos</h4>
+                <p className="text-muted-foreground text-xs mt-1">Crie propostas comerciais e cotações de preços em PDF.</p>
+              </div>
+              <div className="flex items-baseline justify-between mt-4">
+                <span className="text-3xl font-black font-mono leading-none">{loading ? '...' : stats.quotes}</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Orçamentos</span>
               </div>
             </Link>
 

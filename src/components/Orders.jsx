@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { productsApi, ordersApi, quotesApi } from '../lib/api';
 import { Calculator, ClipboardList, Plus, Trash2, Loader2, Search, X, Save, History, ChevronRight, ChevronDown, Calendar, Droplets, Printer } from 'lucide-react';
-import { cn } from '../lib/utils';
-
+import { cn, normalizeText } from '../lib/utils';
 export default function Orders() {
     const [products, setProducts] = useState([]);
     const [pastOrders, setPastOrders] = useState([]);
@@ -31,6 +30,13 @@ export default function Orders() {
     // Multiselect & consolidated printing state
     const [selectedOrders, setSelectedOrders] = useState([]);
     const [activePrintJob, setActivePrintJob] = useState(null);
+
+    // Modal for selecting items to print (can be single or consolidated)
+    const [printModalJob, setPrintModalJob] = useState(null);
+    const [selectedPrintItems, setSelectedPrintItems] = useState([]);
+    
+    // Custom name for the production order (e.g. client name from quote)
+    const [customOrderName, setCustomOrderName] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -105,6 +111,7 @@ export default function Orders() {
             setProductionList(prev => [...prev, ...newStagingItems]);
             setRequirements(null); // Reset calculated requirements
             setSelectedQuoteId('');
+            setCustomOrderName(quote.client_name);
         }
 
         if (customCount > 0) {
@@ -185,7 +192,7 @@ export default function Orders() {
         try {
             const orderData = {
                 date: new Date().toISOString(),
-                recipe_name: productionList.map(p => `${p.targetQuantity}x ${p.recipeName}`).join(', '),
+                recipe_name: customOrderName.trim() || productionList.map(p => `${p.targetQuantity}x ${p.recipeName}`).join(', '),
                 quantity: productionList.reduce((acc, p) => acc + p.targetQuantity, 0),
                 items: requirements // Store the calculated requirements
             };
@@ -193,6 +200,7 @@ export default function Orders() {
             await ordersApi.add(orderData);
             setProductionList([]);
             setRequirements(null);
+            setCustomOrderName('');
             fetchData(); // Refresh history
             alert('Ordem salva com sucesso!');
         } catch (error) {
@@ -260,22 +268,45 @@ export default function Orders() {
 
         const consolidatedItems = [...sortedIngList, ...sortedCustomList];
 
-        setActivePrintJob({
+        setPrintModalJob({
             type: 'consolidated',
             orders: selectedList,
             items: consolidatedItems
         });
-
-        setTimeout(() => {
-            window.print();
-        }, 150);
+        setSelectedPrintItems(consolidatedItems.map(item => item.name));
     };
 
     const handlePrintSingle = (order) => {
-        setActivePrintJob({
+        setPrintModalJob({
             type: 'single',
-            order
+            order,
+            items: order.items || []
         });
+        // Pre-select all items by default
+        setSelectedPrintItems(order.items?.map(item => item.name) || []);
+    };
+
+    const triggerPrintJob = () => {
+        if (!printModalJob) return;
+        const filteredItems = (printModalJob.items || []).filter(item => 
+            selectedPrintItems.includes(item.name)
+        );
+
+        if (printModalJob.type === 'consolidated') {
+            setActivePrintJob({
+                type: 'consolidated',
+                orders: printModalJob.orders,
+                items: filteredItems
+            });
+        } else {
+            setActivePrintJob({
+                type: 'single',
+                order: printModalJob.order,
+                items: filteredItems
+            });
+        }
+
+        setPrintModalJob(null); // Close modal
         setTimeout(() => {
             window.print();
         }, 150);
@@ -327,6 +358,18 @@ export default function Orders() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end relative z-10">
+                    {/* Order Identification / Client Name Input */}
+                    <div className="md:col-span-12 space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identificação da Ordem / Cliente (Opcional)</label>
+                        <input
+                            type="text"
+                            value={customOrderName}
+                            onChange={e => setCustomOrderName(e.target.value)}
+                            placeholder="ex: Lote de Teste, Hotel Boutique Aurora..."
+                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition-all font-medium"
+                        />
+                    </div>
+
                     {/* Searchable input */}
                     <div className="md:col-span-7 space-y-2 relative">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Produto</label>
@@ -358,7 +401,7 @@ export default function Orders() {
                         {isDropdownOpen && (
                             <div className="absolute z-50 w-full mt-2 bg-surface border border-border rounded-xl shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2">
                                 {products
-                                    ?.filter(r => r.name.toLowerCase().includes(recipeSearch.toLowerCase()))
+                                    ?.filter(r => normalizeText(r.name).includes(normalizeText(recipeSearch)))
                                     .map(r => (
                                         <div
                                             key={r.id}
@@ -659,11 +702,16 @@ export default function Orders() {
                                 <p className="text-[8px] text-indigo-600 font-sans font-bold uppercase tracking-[0.1em] mt-1 leading-none">Aromas para Casa</p>
                                 <p className="text-[9px] text-slate-400 font-sans mt-3 font-light">oi@usekiros.com.br</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right max-w-xs">
                                 <span className="text-[9px] font-black uppercase bg-slate-100 px-2 py-0.5 rounded text-slate-600 tracking-wider">
                                     {activePrintJob.type === 'consolidated' ? 'CONSOLIDAÇÃO DE ORDENS' : 'ORDEM DE PRODUÇÃO'}
                                 </span>
-                                <p className="text-[10px] text-slate-400 font-mono mt-2">
+                                {activePrintJob.type !== 'consolidated' && activePrintJob.order?.recipe_name && (
+                                    <p className="text-[10px] text-slate-900 font-bold uppercase tracking-tight mt-1 leading-snug">
+                                        {activePrintJob.order.recipe_name}
+                                    </p>
+                                )}
+                                <p className="text-[9px] text-slate-400 font-mono mt-1">
                                     Data: {new Date().toLocaleDateString('pt-BR')}
                                 </p>
                             </div>
@@ -702,7 +750,7 @@ export default function Orders() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-slate-700">
-                                    {(activePrintJob.type === 'consolidated' ? activePrintJob.items : activePrintJob.order.items)?.map((item, idx) => (
+                                    {activePrintJob.items?.map((item, idx) => (
                                         <tr key={idx}>
                                             <td className="px-4 py-2.5 text-center align-middle w-12">
                                                 <div className="w-4 h-4 border border-slate-400 rounded mx-auto bg-white"></div>
@@ -735,6 +783,105 @@ export default function Orders() {
                                 <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500">Responsável / Qualidade</p>
                                 <div className="w-32 border-b border-slate-300 mt-6 ml-auto"></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Seleção de Itens para Impressão */}
+            {printModalJob && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-surface border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-250">
+                        {/* Header */}
+                        <div className="p-6 border-b border-border flex justify-between items-center bg-muted/30">
+                            <div>
+                                <h3 className="text-base font-black uppercase tracking-widest text-foreground">
+                                    {printModalJob.type === 'consolidated' ? 'Consolidar e Imprimir Ordens' : 'Imprimir Ordem de Produção'}
+                                </h3>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                    {printModalJob.type === 'consolidated' 
+                                        ? `${printModalJob.orders.length} ordens selecionadas`
+                                        : printModalJob.order?.recipe_name}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setPrintModalJob(null)}
+                                className="text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded-lg transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 space-y-4 max-h-[350px] overflow-y-auto">
+                            <p className="text-xs text-muted-foreground">Selecione quais matérias-primas você deseja incluir na impressão:</p>
+                            
+                            {/* Toggle All checkbox */}
+                            <label className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl border border-border/50 cursor-pointer hover:border-indigo-500/40 transition-all font-bold text-xs select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedPrintItems.length === (printModalJob.items?.length || 0)}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedPrintItems(printModalJob.items?.map(i => i.name) || []);
+                                        } else {
+                                            setSelectedPrintItems([]);
+                                        }
+                                    }}
+                                    className="w-4.5 h-4.5 rounded text-indigo-600 focus:ring-indigo-500 bg-background cursor-pointer accent-indigo-600"
+                                />
+                                <span>Selecionar Todos</span>
+                            </label>
+
+                            <div className="space-y-2.5">
+                                {printModalJob.items?.map((item, idx) => (
+                                    <label
+                                        key={idx}
+                                        className={cn(
+                                            "flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none text-xs",
+                                            selectedPrintItems.includes(item.name)
+                                                ? "border-indigo-500/20 bg-indigo-500/5 text-foreground font-bold"
+                                                : "border-border/60 bg-transparent text-muted-foreground"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedPrintItems.includes(item.name)}
+                                                onChange={() => {
+                                                    setSelectedPrintItems(prev => 
+                                                        prev.includes(item.name)
+                                                            ? prev.filter(name => name !== item.name)
+                                                            : [...prev, item.name]
+                                                    );
+                                                }}
+                                                className="w-4.5 h-4.5 rounded text-indigo-600 focus:ring-indigo-500 bg-background cursor-pointer accent-indigo-600"
+                                            />
+                                            <span className="uppercase tracking-tight">{item.name}</span>
+                                        </div>
+                                        <span className="font-mono text-muted-foreground">
+                                            {item.requiredQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {item.unit}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 border-t border-border flex gap-3 justify-end bg-muted/10">
+                            <button
+                                onClick={() => setPrintModalJob(null)}
+                                className="px-5 py-3 bg-muted hover:bg-muted/80 text-muted-foreground font-bold text-xs uppercase tracking-wider rounded-xl transition-all border border-border active:scale-95"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={triggerPrintJob}
+                                disabled={selectedPrintItems.length === 0}
+                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+                            >
+                                <Printer size={15} /> Imprimir
+                            </button>
                         </div>
                     </div>
                 </div>

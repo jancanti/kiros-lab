@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ingredientsApi, productsApi } from '../lib/api';
 import { Plus, Trash2, ChevronRight, ChevronDown, Save, Edit, Copy, Search, X, Loader2 } from 'lucide-react';
-import { cn } from '../lib/utils';
-
+import { normalizeText } from '../lib/utils';
 export default function Products() {
   const [allIngredients, setAllIngredients] = useState([]);
   const [products, setProducts] = useState([]);
@@ -23,6 +22,7 @@ export default function Products() {
   const [selectedIngQty, setSelectedIngQty] = useState('');
   const [ingredientSearch, setIngredientSearch] = useState('');
   const [isIngredientDropdownOpen, setIsIngredientDropdownOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -158,6 +158,10 @@ export default function Products() {
     }, 0);
   };
 
+  const filteredProducts = products.filter(product =>
+    normalizeText(product.name).includes(normalizeText(productSearch))
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -251,7 +255,7 @@ export default function Products() {
                   {isIngredientDropdownOpen && (
                     <div className="absolute z-10 w-full mt-1 bg-surface border border-border rounded-lg shadow-xl max-h-60 overflow-y-auto">
                       {allIngredients
-                        ?.filter(ing => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase()))
+                        ?.filter(ing => normalizeText(ing.name).includes(normalizeText(ingredientSearch)))
                         .map(ing => (
                           <div
                             key={ing.id}
@@ -340,9 +344,31 @@ export default function Products() {
         </div>
       )}
 
+      {/* Search Bar */}
+      {!loading && products.length > 0 && (
+        <div className="relative mb-2">
+          <input
+            type="text"
+            value={productSearch}
+            onChange={e => setProductSearch(e.target.value)}
+            placeholder="Buscar produtos pelo nome..."
+            className="w-full bg-surface border border-border rounded-xl px-4 py-3 pl-11 text-sm text-foreground focus:outline-none focus:border-brand/50 transition-colors shadow-sm"
+          />
+          <Search className="absolute left-4 top-3.5 text-muted-foreground" size={18} />
+          {productSearch && (
+            <button
+              onClick={() => setProductSearch('')}
+              className="absolute right-4 top-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Product List */}
       <div className="grid gap-4">
-        {products?.map(product => (
+        {filteredProducts?.map(product => (
           <div key={product.id} className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
             <div
               className="p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors gap-4"
@@ -437,6 +463,20 @@ export default function Products() {
             )}
           </div>
         ))}
+
+        {!loading && products?.length > 0 && filteredProducts.length === 0 && (
+          <div className="border border-dashed border-border rounded-xl text-center py-16 text-muted-foreground bg-muted/5 flex flex-col items-center justify-center gap-3">
+            <Search className="text-muted-foreground opacity-40" size={36} />
+            <p className="font-bold tracking-tight uppercase text-xs">Nenhum produto encontrado</p>
+            <p className="text-xs text-muted-foreground/80">Não encontramos nenhum produto correspondente a "{productSearch}"</p>
+            <button
+              onClick={() => setProductSearch('')}
+              className="text-xs font-black text-brand hover:opacity-85 transition-opacity uppercase tracking-wider bg-brand/10 border border-brand/20 px-3.5 py-2 rounded-xl mt-2 cursor-pointer active:scale-95 transition-all font-sans"
+            >
+              Limpar Busca
+            </button>
+          </div>
+        )}
 
         {!loading && products?.length === 0 && !isCreating && (
           <div className="border border-dashed border-border rounded-xl text-center py-20 text-muted-foreground">
